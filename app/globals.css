@@ -1,0 +1,172 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-instrument), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  
+  --color-peach: #df9367;
+  --color-peach-light: #f5cfb8;
+  --color-peach-dark: #c47648;
+  --color-peach-subtle: #fbf0e8;
+
+  --color-surface-base: #f7f6f0;
+  --color-surface-card: #ffffff;
+  --color-surface-warm: #fcfbf8;
+  --color-surface-muted: #eeece4;
+  --color-surface-dark: #0f0f11;
+
+  --color-ink-primary: #0f0f11;
+  --color-ink-secondary: #52525b;
+  --color-ink-muted: #8c8b85;
+  --color-ink-border: #18181b;
+
+  --color-status-success: #15803d;
+  --color-status-success-bg: #eaf8ee;
+  --color-status-warning: #b45309;
+  --color-status-warning-bg: #fef4e6;
+  --color-status-danger: #b91c1c;
+  --color-status-danger-bg: #feeceb;
+}
+
+/* Base styling */
+:root {
+  --border-black: #0f0f11;
+  --shadow-tactile: 3px 3px 0px #0f0f11;
+  --shadow-tactile-sm: 2px 2px 0px #0f0f11;
+  --shadow-tactile-lg: 5px 5px 0px #0f0f11;
+  --shadow-tactile-peach: 3px 3px 0px #df9367;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: #0f0f11;
+  background-color: #f7f6f0;
+}
+
+/* Patter Dot Grid */
+.patter-dot-grid {
+  background-image: radial-gradient(#d3d0c5 1.2px, transparent 1.2px);
+  background-size: 16px 16px;
+}
+
+.patter-dot-grid-dense {
+  background-image: radial-gradient(#d3d0c5 1px, transparent 1px);
+  background-size: 10px 10px;
+}
+
+.patter-dot-grid-dark {
+  background-image: radial-gradient(#27272a 1.2px, transparent 1.2px);
+  background-size: 16px 16px;
+}
+
+/* Neo-Brutalist Tactile Controls */
+.patter-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  border: 1.5px solid #0f0f11;
+  box-shadow: 2px 2px 0px #0f0f11;
+  transition: all 0.1s ease-in-out;
+  cursor: pointer;
+  user-select: none;
+}
+
+.patter-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px #0f0f11;
+}
+
+.patter-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px #0f0f11;
+}
+
+.patter-btn-peach {
+  background-color: #df9367;
+  color: #0f0f11;
+}
+.patter-btn-peach:hover {
+  background-color: #e59d74;
+}
+
+.patter-btn-white {
+  background-color: #ffffff;
+  color: #0f0f11;
+}
+.patter-btn-white:hover {
+  background-color: #faf9f6;
+}
+
+.patter-btn-black {
+  background-color: #0f0f11;
+  color: #ffffff;
+  border-color: #0f0f11;
+  box-shadow: 2px 2px 0px #52525b;
+}
+.patter-btn-black:hover {
+  background-color: #1f1f23;
+  box-shadow: 3px 3px 0px #52525b;
+}
+
+/* Cards & Panels */
+.patter-card {
+  border: 1.5px solid #0f0f11;
+  background-color: #ffffff;
+  box-shadow: 3px 3px 0px #0f0f11;
+}
+
+.patter-card-flat {
+  border: 1.5px solid #0f0f11;
+  background-color: #ffffff;
+}
+
+.patter-card-peach {
+  border: 1.5px solid #0f0f11;
+  background-color: #fcf4ee;
+  box-shadow: 3px 3px 0px #0f0f11;
+}
+
+.patter-terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background-color: #0f0f11;
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Pills and Badges */
+.patter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid #0f0f11;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Mono utility */
+.font-mono-numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Animations */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+

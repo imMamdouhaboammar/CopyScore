@@ -1,0 +1,71 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private user account profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "handle": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "roleTitle": { "type": "string" },
+        "company": { "type": "string" },
+        "bio": { "type": "string" },
+        "countryCode": { "type": "string" },
+        "isPublic": { "type": "boolean" },
+        "allowChallenges": { "type": "boolean" },
+        "showRankOnLeaderboard": { "type": "boolean" },
+        "bestScore": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "handle"]
+    },
+    "HandleReservation": {
+      "title": "HandleReservation",
+      "description": "Unique handle registry to ensure handle uniqueness",
+      "type": "object",
+      "properties": {
+        "handle": { "type": "string" },
+        "uid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["handle", "uid"]
+    },
+    "PublicProfile": {
+      "title": "PublicProfile",
+      "description": "Public projection of user benchmark profile",
+      "type": "object",
+      "properties": {
+        "handle": { "type": "string" },
+        "displayName": { "type": "string" },
+        "uid": { "type": "string" },
+        "roleTitle": { "type": "string" },
+        "company": { "type": "string" },
+        "bio": { "type": "string" },
+        "countryCode": { "type": "string" },
+        "bestScore": { "type": "number" },
+        "bestArchetype": { "type": "string" },
+        "allowChallenges": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["handle", "uid"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Private user profiles with account settings"
+    },
+    "/handles/{handle}": {
+      "schema": "HandleReservation",
+      "description": "Registry of taken handles"
+    },
+    "/publicProfiles/{handle}": {
+      "schema": "PublicProfile",
+      "description": "Public copywriter benchmark profiles"
+    }
+  }
+}

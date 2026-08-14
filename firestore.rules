@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User profile documents
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Handle reservations
+    match /handles/{handle} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Public profiles
+    match /publicProfiles/{profileId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && (request.resource.data.uid == request.auth.uid || resource.data.uid == request.auth.uid);
+    }
+
+    // Leaderboard entries
+    match /leaderboard/{entryId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Assessment results and historical logs
+    match /results/{resultId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Head-to-head challenges
+    match /challenges/{challengeId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}

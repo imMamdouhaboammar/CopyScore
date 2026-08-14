@@ -1,0 +1,8 @@
+{
+  "name": "Remix CopyScore — Adaptive Copywriting Benchmark",
+  "description": "Adaptive, gamified copywriting and CRO assessment engine featuring multi-dimensional scoring, archetype diagnosis, live leaderboards, and head-to-head challenges.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
