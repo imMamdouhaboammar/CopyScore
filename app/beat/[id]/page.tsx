@@ -20,7 +20,9 @@ export default function BeatChallengerPage({
         onNavigate={(view) => {
           if (view === 'landing') router.push('/');
           else if (view === 'assessment') router.push('/');
-          else if (view === 'leaderboard') router.push('/');
+          else if (view === 'leaderboard') router.push('/leaderboard');
+          else if (view === 'pricing') router.push('/pricing');
+          else router.push('/');
         }}
         onOpenMethodology={() => {}}
       />

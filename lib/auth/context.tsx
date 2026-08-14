@@ -84,30 +84,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Listen to Firebase ID token changes (tokens, signins, token refreshes)
   useEffect(() => {
+    let mounted = true;
     const auth = getFirebaseAuth();
+    
     const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
+      if (!mounted) return;
       setUser(currentUser);
+      
       if (currentUser) {
+        setLoading(false);
         try {
-          await syncServerSession(currentUser, true);
+          syncServerSession(currentUser, true).catch(() => {});
           const p = await ensureUserProfile(currentUser.uid, {
             email: currentUser.email,
             displayName: currentUser.displayName,
             photoURL: currentUser.photoURL,
             emailVerified: currentUser.emailVerified,
           });
-          setProfile(p);
+          if (mounted) {
+            setProfile(p);
+          }
         } catch (err) {
           console.error('Error synchronizing user on auth change', err);
         }
       } else {
         setProfile(null);
-        await syncServerSession(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const clearPendingGuestScore = useCallback(() => {
@@ -127,41 +136,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, pendingGuestScore]);
 
-  const signInWithEmail = async (email: string, pass: string, rememberMe: boolean = true) => {
+  const signInWithEmail = useCallback(async (email: string, pass: string, rememberMe: boolean = true) => {
     const { profile: p } = await fbSignInWithEmail(email, pass, rememberMe);
     setProfile(p);
     return p;
-  };
+  }, []);
 
-  const signUpWithEmail = async (email: string, pass: string, displayName: string, handle?: string) => {
+  const signUpWithEmail = useCallback(async (email: string, pass: string, displayName: string, handle?: string) => {
     const { profile: p } = await fbSignUpWithEmail(email, pass, displayName, handle);
     setProfile(p);
     return p;
-  };
+  }, []);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async () => {
     const { profile: p } = await fbSignInWithGoogle();
     setProfile(p);
     return p;
-  };
+  }, []);
 
-  const signInWithGithub = async () => {
+  const signInWithGithub = useCallback(async () => {
     const { profile: p } = await fbSignInWithGithub();
     setProfile(p);
     return p;
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await fbSignOutUser();
     setUser(null);
     setProfile(null);
-  };
+  }, []);
 
-  const sendPasswordReset = async (email: string) => {
+  const sendPasswordReset = useCallback(async (email: string) => {
     await fbSendPasswordReset(email);
-  };
+  }, []);
 
-  const value: AuthContextType = {
+  const value: AuthContextType = React.useMemo(() => ({
     user,
     profile,
     loading,
@@ -178,7 +187,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signInWithGithub,
     signOut,
     sendPasswordReset,
-  };
+  }), [
+    user,
+    profile,
+    loading,
+    pendingGuestScore,
+    clearPendingGuestScore,
+    claimPendingGuestScore,
+    refreshProfile,
+    signInWithEmail,
+    signUpWithEmail,
+    signInWithGoogle,
+    signInWithGithub,
+    signOut,
+    sendPasswordReset,
+  ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

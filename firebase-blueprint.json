@@ -52,6 +52,49 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["handle", "uid"]
+    },
+    "AIResourceDoc": {
+      "title": "AIResourceDoc",
+      "description": "Curated marketing AI skill, plugin, or extension metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "slug": { "type": "string" },
+        "name": { "type": "string" },
+        "tagline": { "type": "string" },
+        "description": { "type": "string" },
+        "resourceType": { "type": "string" },
+        "curationStatus": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "slug", "name"]
+    },
+    "UserAIStackDoc": {
+      "title": "UserAIStackDoc",
+      "description": "User saved and installed AI stack preferences",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "installedSlugs": { "type": "array" },
+        "wantToTrySlugs": { "type": "array" },
+        "favoriteSlugs": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId"]
+    },
+    "AISubmissionDoc": {
+      "title": "AISubmissionDoc",
+      "description": "Community submitted AI marketing skill or tool",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "url": { "type": "string" },
+        "name": { "type": "string" },
+        "whyUseful": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "url", "name"]
     }
   },
   "firestore": {
@@ -66,6 +109,18 @@
     "/publicProfiles/{handle}": {
       "schema": "PublicProfile",
       "description": "Public copywriter benchmark profiles"
+    },
+    "/aiResources/{resourceId}": {
+      "schema": "AIResourceDoc",
+      "description": "Public curated marketing AI skills and extensions"
+    },
+    "/userAIStacks/{userId}": {
+      "schema": "UserAIStackDoc",
+      "description": "User personal AI toolkit and saved prompt stack"
+    },
+    "/aiSubmissions/{submissionId}": {
+      "schema": "AISubmissionDoc",
+      "description": "Community resource submission inbox"
     }
   }
 }

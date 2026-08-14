@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Navbar } from '@/components/assessment/Navbar';
 import { CreativePricing } from '@/components/pricing/CreativePricing';
 import { MethodologyModal } from '@/components/assessment/MethodologyModal';
@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 export default function PricingPage() {
   const router = useRouter();
   const [isMethodologyOpen, setIsMethodologyOpen] = useState(false);
-  const [userScore, setUserScore] = useState<number | null>(() => {
+  const [userScore] = useState<number | null>(() => {
     if (typeof window === 'undefined') return null;
     try {
       const savedScore = localStorage.getItem('copyscore_last_score_v1');
@@ -33,6 +33,8 @@ export default function PricingPage() {
           if (view === 'pricing') return;
           if (view === 'leaderboard') {
             router.push('/leaderboard');
+          } else if (view === 'challenge') {
+            router.push('/beat/mamdouh');
           } else {
             router.push('/');
           }

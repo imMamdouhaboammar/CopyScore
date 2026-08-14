@@ -11,7 +11,7 @@ export default function LeaderboardPage() {
   const [isMethodologyOpen, setIsMethodologyOpen] = useState(false);
 
   const handleStartAssessment = () => {
-    router.push('/?action=start');
+    router.push('/');
   };
 
   const handleChallengeUser = (handle: string) => {
@@ -24,7 +24,9 @@ export default function LeaderboardPage() {
         currentView="leaderboard"
         onNavigate={(view) => {
           if (view === 'leaderboard') return;
-          router.push('/');
+          if (view === 'pricing') router.push('/pricing');
+          else if (view === 'challenge') router.push('/beat/mamdouh');
+          else router.push('/');
         }}
         onOpenMethodology={() => setIsMethodologyOpen(true)}
       />

@@ -123,7 +123,7 @@ export default function AdminPage() {
         {/* Database Health & Collections Overview */}
         <div className="patter-card bg-white p-6 shadow-[3px_3px_0px_#0f0f11] space-y-4">
           <h2 className="font-mono font-bold text-sm text-[#0f0f11] uppercase tracking-wider">
-            Firestore Database Architecture
+            Firestore Database Architecture & AI Resource Layer
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
@@ -138,14 +138,23 @@ export default function AdminPage() {
             </div>
 
             <div className="p-3.5 bg-[#fcfbf8] border border-[#0f0f11] space-y-1">
-              <div className="font-bold text-[#0f0f11]">Collection: /publicProfiles</div>
-              <div className="text-[#52525b]">Public projections for /u/[handle] profiles and certified share cards.</div>
+              <div className="font-bold text-[#0f0f11]">Collection: /aiResources</div>
+              <div className="text-[#52525b]">Curated marketing AI skills, prompt packages, and MCP servers.</div>
             </div>
 
             <div className="p-3.5 bg-[#fcfbf8] border border-[#0f0f11] space-y-1">
-              <div className="font-bold text-[#0f0f11]">Collection: /leaderboard</div>
-              <div className="text-[#52525b]">High-performance cached rankings synced on score evaluations.</div>
+              <div className="font-bold text-[#0f0f11]">Collection: /aiSubmissions</div>
+              <div className="text-[#52525b]">Community-submitted tools undergoing security review and test prompts.</div>
             </div>
+          </div>
+
+          <div className="pt-2 flex justify-end">
+            <Link
+              href="/ai-upscale"
+              className="patter-btn patter-btn-peach text-xs font-mono font-bold py-1.5 px-3"
+            >
+              Open AI Upscale Directory →
+            </Link>
           </div>
         </div>
       </main>

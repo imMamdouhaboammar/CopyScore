@@ -1,15 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Navbar } from '@/components/assessment/Navbar';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Navbar, NavViewType } from '@/components/assessment/Navbar';
 import { LandingHero } from '@/components/assessment/LandingHero';
 import { QuestionArena } from '@/components/assessment/QuestionArena';
 import { ResultReveal } from '@/components/assessment/ResultReveal';
 import { ResultsDashboard } from '@/components/assessment/ResultsDashboard';
 import { LeaderboardView } from '@/components/assessment/LeaderboardView';
 import { ChallengeView } from '@/components/assessment/ChallengeView';
-import { MethodologyModal } from '@/components/assessment/MethodologyModal';
 import { CreativePricing } from '@/components/pricing/CreativePricing';
+import { MethodologyModal } from '@/components/assessment/MethodologyModal';
 import {
   AssessmentStage,
   ClientQuestion,
@@ -20,15 +20,14 @@ const LOCAL_STORAGE_SESSION_KEY = 'copyscore_active_session_v1';
 const LOCAL_STORAGE_SCORE_KEY = 'copyscore_last_score_v1';
 
 export default function Home() {
-  const [currentView, setCurrentView] = useState<
-    'landing' | 'assessment' | 'reveal' | 'results' | 'leaderboard' | 'challenge' | 'pricing'
-  >(() => {
+  const [currentView, setCurrentView] = useState<NavViewType>(() => {
     if (typeof window === 'undefined') return 'landing';
     try {
       const searchParams = new URLSearchParams(window.location.search);
       if (searchParams.get('challenge')) return 'challenge';
       if (searchParams.get('view') === 'leaderboard') return 'leaderboard';
       if (searchParams.get('view') === 'pricing') return 'pricing';
+      if (searchParams.get('view') === 'challenge') return 'challenge';
     } catch {
       // Ignore
     }
@@ -77,6 +76,47 @@ export default function Home() {
     }
     return 'mamdouh';
   });
+
+  // Switch view with smooth URL state sync (no full reload)
+  const navigateToView = useCallback((view: 'landing' | 'assessment' | 'leaderboard' | 'challenge' | 'pricing' | 'results' | 'reveal') => {
+    setCurrentView(view);
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        if (view === 'landing') {
+          url.searchParams.delete('view');
+          url.searchParams.delete('challenge');
+        } else if (view === 'leaderboard' || view === 'pricing' || view === 'challenge') {
+          url.searchParams.set('view', view);
+        }
+        window.history.pushState({ view }, '', url.toString());
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const viewParam = searchParams.get('view');
+        if (viewParam === 'leaderboard' || viewParam === 'pricing' || viewParam === 'challenge') {
+          setCurrentView(viewParam as any);
+        } else if (searchParams.get('challenge')) {
+          setCurrentView('challenge');
+        } else {
+          setCurrentView('landing');
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Handler: Start new assessment
   const handleStartAssessment = async (challengeCode?: string) => {
@@ -179,7 +219,7 @@ export default function Home() {
   // Handler: Open Challenge
   const handleChallengeUser = (handle: string) => {
     setViewingChallengeCode(handle);
-    setCurrentView('challenge');
+    navigateToView('challenge');
   };
 
   return (
@@ -195,7 +235,7 @@ export default function Home() {
               handleStartAssessment();
             }
           } else {
-            setCurrentView(view);
+            navigateToView(view);
           }
         }}
         onOpenMethodology={() => setIsMethodologyOpen(true)}
@@ -208,9 +248,9 @@ export default function Home() {
         {currentView === 'landing' && (
           <LandingHero
             onStartAssessment={() => handleStartAssessment()}
-            onViewLeaderboard={() => setCurrentView('leaderboard')}
+            onViewLeaderboard={() => navigateToView('leaderboard')}
             onOpenMethodology={() => setIsMethodologyOpen(true)}
-            onOpenPricing={() => setCurrentView('pricing')}
+            onOpenPricing={() => navigateToView('pricing')}
           />
         )}
 
@@ -242,9 +282,9 @@ export default function Home() {
           <ResultsDashboard
             score={finalScore}
             onRetake={handleRetake}
-            onViewLeaderboard={() => setCurrentView('leaderboard')}
+            onViewLeaderboard={() => navigateToView('leaderboard')}
             onOpenChallenge={handleChallengeUser}
-            onOpenPricing={() => setCurrentView('pricing')}
+            onOpenPricing={() => navigateToView('pricing')}
           />
         )}
 
@@ -298,7 +338,7 @@ export default function Home() {
 
           <div className="flex flex-wrap items-center gap-4">
             <button
-              onClick={() => setCurrentView('pricing')}
+              onClick={() => navigateToView('pricing')}
               className="hover:text-[#0f0f11] underline cursor-pointer font-bold text-[#0f0f11]"
             >
               Pricing & Plans
@@ -312,7 +352,7 @@ export default function Home() {
             </button>
             <span>•</span>
             <button
-              onClick={() => setCurrentView('leaderboard')}
+              onClick={() => navigateToView('leaderboard')}
               className="hover:text-[#0f0f11] underline cursor-pointer"
             >
               Verified Rankings

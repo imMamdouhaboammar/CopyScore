@@ -2,18 +2,34 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Target, Trophy, Swords, BookOpen, ShieldCheck, User, LogIn, Sparkles } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Target, Trophy, Swords, BookOpen, ShieldCheck, Sparkles, LogIn } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 
+export type NavViewType = 'landing' | 'assessment' | 'reveal' | 'results' | 'leaderboard' | 'challenge' | 'profile' | 'pricing';
+
 interface NavbarProps {
-  currentView: 'landing' | 'assessment' | 'reveal' | 'results' | 'leaderboard' | 'challenge' | 'profile' | 'pricing';
-  onNavigate: (view: 'landing' | 'assessment' | 'leaderboard' | 'challenge' | 'pricing') => void;
-  onOpenMethodology: () => void;
+  currentView: NavViewType;
+  onNavigate?: (view: 'landing' | 'assessment' | 'leaderboard' | 'challenge' | 'pricing') => void;
+  onOpenMethodology?: () => void;
   hasActiveSession?: boolean;
 }
 
 export function Navbar({ currentView, onNavigate, onOpenMethodology, hasActiveSession }: NavbarProps) {
-  const { user, profile, isAuthenticated, pendingGuestScore } = useAuth();
+  const { profile, isAuthenticated, pendingGuestScore } = useAuth();
+  const router = useRouter();
+
+  const handleNavClick = (view: 'landing' | 'assessment' | 'leaderboard' | 'challenge' | 'pricing') => {
+    if (onNavigate) {
+      onNavigate(view);
+    } else {
+      if (view === 'landing') router.push('/');
+      else if (view === 'leaderboard') router.push('/leaderboard');
+      else if (view === 'pricing') router.push('/pricing');
+      else if (view === 'challenge') router.push('/beat/mamdouh');
+      else router.push('/');
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b-[1.5px] border-[#0f0f11] bg-[#f7f6f0]/95 backdrop-blur-xs">
@@ -41,7 +57,7 @@ export function Navbar({ currentView, onNavigate, onOpenMethodology, hasActiveSe
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
         {/* Brand */}
         <button
-          onClick={() => onNavigate('landing')}
+          onClick={() => handleNavClick('landing')}
           className="flex items-center gap-2.5 text-left group focus:outline-none cursor-pointer"
         >
           <div className="h-8 w-8 rounded-none border-[1.5px] border-[#0f0f11] bg-[#df9367] flex items-center justify-center shadow-[2px_2px_0px_#0f0f11] group-hover:translate-x-0.5 group-hover:translate-y-0.5 group-hover:shadow-[1px_1px_0px_#0f0f11] transition-all">
@@ -64,8 +80,16 @@ export function Navbar({ currentView, onNavigate, onOpenMethodology, hasActiveSe
 
         {/* Center / Right actions */}
         <div className="flex items-center gap-2 sm:gap-3">
+          <Link
+            href="/ai-upscale"
+            className="patter-btn px-2.5 sm:px-3 py-1.5 text-xs font-mono font-bold bg-[#fcf4ee] text-[#c47648] border-[#df9367] hover:bg-[#fae8dc] flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#df9367]" />
+            <span>AI Skills</span>
+          </Link>
+
           <button
-            onClick={() => onNavigate('pricing')}
+            onClick={() => handleNavClick('pricing')}
             className={`patter-btn px-2.5 sm:px-3 py-1.5 text-xs font-mono font-medium ${
               currentView === 'pricing'
                 ? 'bg-[#0f0f11] text-white shadow-[1px_1px_0px_#0f0f11]'
@@ -77,7 +101,7 @@ export function Navbar({ currentView, onNavigate, onOpenMethodology, hasActiveSe
           </button>
 
           <button
-            onClick={() => onNavigate('leaderboard')}
+            onClick={() => handleNavClick('leaderboard')}
             className={`patter-btn px-2.5 sm:px-3 py-1.5 text-xs font-mono font-medium ${
               currentView === 'leaderboard'
                 ? 'bg-[#0f0f11] text-white shadow-[1px_1px_0px_#0f0f11]'
@@ -89,7 +113,7 @@ export function Navbar({ currentView, onNavigate, onOpenMethodology, hasActiveSe
           </button>
 
           <button
-            onClick={() => onNavigate('challenge')}
+            onClick={() => handleNavClick('challenge')}
             className={`hidden sm:inline-flex patter-btn px-3 py-1.5 text-xs font-mono font-medium ${
               currentView === 'challenge'
                 ? 'bg-[#0f0f11] text-white shadow-[1px_1px_0px_#0f0f11]'
@@ -100,19 +124,22 @@ export function Navbar({ currentView, onNavigate, onOpenMethodology, hasActiveSe
             <span>Head-to-Head</span>
           </button>
 
-          <button
-            onClick={onOpenMethodology}
-            className="hidden md:inline-flex patter-btn bg-[#fcfbf8] px-3 py-1.5 text-xs font-mono text-[#52525b] hover:text-[#0f0f11]"
-            title="View psychometric and scoring methodology"
-          >
-            <BookOpen className="w-3.5 h-3.5 mr-1.5" />
-            <span>Methodology</span>
-          </button>
+          {onOpenMethodology && (
+            <button
+              onClick={onOpenMethodology}
+              className="hidden md:inline-flex patter-btn bg-[#fcfbf8] px-3 py-1.5 text-xs font-mono text-[#52525b] hover:text-[#0f0f11]"
+              title="View psychometric and scoring methodology"
+            >
+              <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+              <span>Methodology</span>
+            </button>
+          )}
 
           {/* Auth Button or Account Link */}
           {isAuthenticated ? (
             <Link
               href="/account"
+              prefetch={true}
               className="patter-btn bg-[#0f0f11] text-white px-3 py-1.5 text-xs font-mono font-bold flex items-center gap-2 hover:bg-[#27272a] transition-colors"
             >
               <div className="h-4 w-4 bg-[#df9367] text-[#0f0f11] flex items-center justify-center text-[10px] font-extrabold">
@@ -125,6 +152,7 @@ export function Navbar({ currentView, onNavigate, onOpenMethodology, hasActiveSe
           ) : pendingGuestScore ? (
             <Link
               href="/auth/sign-up"
+              prefetch={true}
               className="patter-btn bg-[#df9367] text-[#0f0f11] px-3 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 animate-pulse-subtle shadow-[2px_2px_0px_#0f0f11]"
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -133,6 +161,7 @@ export function Navbar({ currentView, onNavigate, onOpenMethodology, hasActiveSe
           ) : (
             <Link
               href="/auth/sign-in"
+              prefetch={true}
               className="patter-btn patter-btn-white px-3 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5"
             >
               <LogIn className="w-3.5 h-3.5 text-[#df9367]" />
@@ -142,7 +171,7 @@ export function Navbar({ currentView, onNavigate, onOpenMethodology, hasActiveSe
 
           {currentView !== 'assessment' && (
             <button
-              onClick={() => onNavigate('assessment')}
+              onClick={() => handleNavClick('assessment')}
               className="patter-btn patter-btn-peach px-3.5 sm:px-4 py-1.5 text-xs sm:text-sm font-mono font-bold tracking-tight"
             >
               {hasActiveSession ? 'Resume Assessment' : 'Take Assessment'}

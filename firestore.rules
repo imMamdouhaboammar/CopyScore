@@ -10,6 +10,13 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'mamdouhFces1997@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
     // User profile documents
     match /users/{userId} {
       allow read, write: if isOwner(userId);
@@ -43,6 +50,29 @@ service cloud.firestore {
     match /challenges/{challengeId} {
       allow read: if true;
       allow write: if true;
+    }
+
+    // Curated AI Resources & Collections
+    match /aiResources/{resourceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /aiCollections/{collectionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // User AI Stacks (personal saved & installed preferences)
+    match /userAIStacks/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Community Submissions
+    match /aiSubmissions/{submissionId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() || true;
+      allow update, delete: if isAdmin();
     }
   }
 }

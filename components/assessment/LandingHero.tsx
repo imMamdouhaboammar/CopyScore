@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { DOMAINS } from '@/lib/types/assessment';
+import { LogoCloud } from '@/components/ui/logo-cloud';
 import {
   ArrowRight,
   Trophy,
@@ -79,7 +80,14 @@ export function LandingHero({
         </p>
       </section>
 
-      {/* SECTION 2: INTERACTIVE SAMPLE PREVIEW */}
+      {/* SECTION 2: AI ECOSYSTEM LOGO CLOUD */}
+      <LogoCloud
+        badge="ECOSYSTEM BENCHMARK"
+        title="TOOLS & MODELS WRITERS NAVIGATE"
+        subtitle="Calibrated against modern generative tools and foundational models shaping commercial copywriting workflows."
+      />
+
+      {/* SECTION 3: INTERACTIVE SAMPLE PREVIEW */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6">
         <div className="patter-card bg-white p-5 sm:p-7 shadow-[5px_5px_0px_#0f0f11] border-[2px]">
           {/* Header */}
