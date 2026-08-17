@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { evaluateUserResponse, selectNextAdaptiveQuestion } from '@/lib/engine/adaptive';
+import { validateAssessmentAnswer } from '@/lib/engine/assessment-integrity';
 import { getQuestionById } from '@/lib/data/question-bank';
 import { store } from '@/lib/storage/store';
 
@@ -8,7 +9,7 @@ const NextQuestionSchema = z.object({
   sessionId: z.string(),
   questionId: z.string(),
   userAnswer: z.union([z.string(), z.array(z.string())]),
-  timeSpentMs: z.number().default(5000),
+  timeSpentMs: z.number().finite().nonnegative().max(3_600_000).default(5000),
 });
 
 export async function POST(req: NextRequest) {
@@ -27,8 +28,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Assessment session not found or expired' }, { status: 404 });
     }
 
-    if (session.isCompleted) {
-      return NextResponse.json({ isCompleted: true, message: 'Assessment already completed' });
+    const integrity = validateAssessmentAnswer(session, questionId);
+    if (!integrity.ok) {
+      return NextResponse.json({ error: integrity.error }, { status: integrity.status });
     }
 
     const question = getQuestionById(questionId);
@@ -36,12 +38,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Question not found' }, { status: 404 });
     }
 
-    // Evaluate response server-side (without exposing answer key to client)
+    // Evaluate only the server-selected active question. Clients cannot skip ahead
+    // or replay an answered question to manipulate adaptive difficulty or scoring.
     const evaluated = evaluateUserResponse(question, userAnswer, timeSpentMs);
     session.responses.push(evaluated);
     session.answeredQuestionIds.push(questionId);
 
-    // Update floating skill estimate for the answered domain
     const d = question.domain;
     const currentEst = session.currentDifficulty[d] || 2.5;
     if (evaluated.isCorrect) {
@@ -52,7 +54,6 @@ export async function POST(req: NextRequest) {
 
     session.lastActiveTime = Date.now();
 
-    // Select next adaptive question
     const selection = selectNextAdaptiveQuestion(
       session.answeredQuestionIds,
       session.responses,
