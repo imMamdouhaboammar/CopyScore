@@ -26,6 +26,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
+    // Finalization has external side effects (Firestore persistence and challenge
+    // mutations). A network retry must return the already-finalized result rather
+    // than calculate or persist it a second time.
+    if (session.isCompleted) {
+      if (!session.finalScore || !session.userHandle) {
+        console.error('Completed assessment session is missing its finalized result', { sessionId });
+        return NextResponse.json({ error: 'Assessment finalization state is inconsistent' }, { status: 409 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        result: session.finalScore,
+        challengeCode: session.userHandle.toLowerCase(),
+        challengeOrigin: session.challengeOrigin,
+      });
+    }
+
     // Check if user is logged in
     const sessionUser = await getServerSessionUser();
 
