@@ -2,8 +2,7 @@
 
 import React from 'react';
 import { AICollection } from '@/lib/types/ai-upscale';
-import { Layers, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
-import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 
 interface CollectionsShowcaseProps {
   collections: AICollection[];
@@ -27,17 +26,16 @@ export function CollectionsShowcase({
             </h2>
           </div>
           <p className="text-xs text-[#52525b] mt-0.5">
-            Pre-assembled multi-skill pipelines designed to execute full end-to-end marketing deliverables
+            Pre-assembled multi-skill pipelines for end-to-end marketing deliverables
           </p>
         </div>
-        <span className="text-[11px] font-mono text-[#8c8b85]">
-          END-TO-END PIPELINES
-        </span>
+        <span className="text-[11px] font-mono text-[#8c8b85]">END-TO-END PIPELINES</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {collections.map((coll) => {
           const isActive = activeCollectionSlug === coll.slug;
+          const workflowSteps = coll.workflowSteps ?? [];
 
           return (
             <div
@@ -49,7 +47,7 @@ export function CollectionsShowcase({
               }`}
             >
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <span
                     className={`text-[10px] font-mono font-bold px-2 py-0.5 uppercase ${
                       isActive ? 'bg-[#df9367] text-[#0f0f11]' : 'bg-[#eeece4] text-[#52525b]'
@@ -59,7 +57,7 @@ export function CollectionsShowcase({
                   </span>
 
                   <span className="text-xs font-mono text-[#8c8b85]">
-                    EST: {coll.estimatedTime}
+                    {workflowSteps.length || coll.resourceSlugs.length} STEPS
                   </span>
                 </div>
 
@@ -76,38 +74,38 @@ export function CollectionsShowcase({
                   </p>
                 </div>
 
-                {/* Workflow Steps Preview */}
-                <div
-                  className={`p-3 border font-mono text-xs space-y-1.5 ${
-                    isActive ? 'bg-[#18181b] border-[#27272a]' : 'bg-[#fcfbf8] border-[#e5e4dc]'
-                  }`}
-                >
-                  <div className="text-[10px] uppercase font-bold text-[#8c8b85]">
-                    PIPELINE STEPS:
-                  </div>
-                  {coll.workflowSteps.map((step) => (
-                    <div key={step.step} className="flex items-start gap-2">
-                      <span className="text-[#df9367] font-bold">0{step.step}.</span>
-                      <div className="flex-1">
-                        <span className="font-bold">{step.title}</span>
-                        <span className="text-[11px] text-[#8c8b85] ml-1.5">({step.tool})</span>
-                      </div>
+                {workflowSteps.length > 0 && (
+                  <div
+                    className={`p-3 border font-mono text-xs space-y-1.5 ${
+                      isActive
+                        ? 'bg-[#18181b] border-[#27272a]'
+                        : 'bg-[#fcfbf8] border-[#e5e4dc]'
+                    }`}
+                  >
+                    <div className="text-[10px] uppercase font-bold text-[#8c8b85]">
+                      PIPELINE STEPS:
                     </div>
-                  ))}
-                </div>
+                    {workflowSteps.map((step) => (
+                      <div key={step.stepNumber} className="flex items-start gap-2">
+                        <span className="text-[#df9367] font-bold">
+                          {String(step.stepNumber).padStart(2, '0')}.
+                        </span>
+                        <div className="flex-1">
+                          <span className="font-bold">{step.title}</span>
+                          <span className="text-[11px] text-[#8c8b85] ml-1.5">({step.stage})</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Action */}
-              <div className="pt-3 border-t border-[#f0eee6] flex items-center justify-between">
-                <span className="text-[11px] font-mono text-[#8c8b85]">
-                  BY: {coll.curatedBy.toUpperCase()}
-                </span>
+              <div className="pt-3 border-t border-[#f0eee6] flex items-center justify-between gap-3">
+                <span className="text-[11px] font-mono text-[#8c8b85]">COPYSCORE CURATION</span>
                 <button
                   onClick={() => onSelectCollection(coll.slug)}
                   className={`patter-btn text-xs font-mono font-bold py-1.5 px-3 flex items-center gap-1.5 cursor-pointer ${
-                    isActive
-                      ? 'bg-[#df9367] text-[#0f0f11]'
-                      : 'patter-btn-peach'
+                    isActive ? 'bg-[#df9367] text-[#0f0f11]' : 'patter-btn-peach'
                   }`}
                 >
                   <span>{isActive ? 'FILTERING BY STACK [✓]' : 'VIEW BUNDLE SKILLS'}</span>
