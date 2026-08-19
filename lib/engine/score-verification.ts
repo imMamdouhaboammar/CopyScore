@@ -117,7 +117,6 @@ function buildVerificationPayload(score: FinalAssessmentScore): string {
     domainScores,
     archetypeId: score.archetype.id,
     totalTimeSeconds: score.totalTimeSeconds,
-    userHandle: score.userHandle ?? null,
   });
 }
 
