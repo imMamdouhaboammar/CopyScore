@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { calculateFinalScore } from '@/lib/engine/scoring';
@@ -5,7 +6,10 @@ import { store } from '@/lib/storage/store';
 import { getServerSessionUser } from '@/lib/auth/session';
 import { getAssessmentGuestAccessHash } from '@/lib/auth/assessment-guest';
 import { validateAssessmentSessionAccess } from '@/lib/engine/assessment-session-policy';
-import { saveServerAssessmentResult } from '@/lib/firebase/server-firestore';
+import {
+  getServerUserProfile,
+  saveServerAssessmentResult,
+} from '@/lib/firebase/server-firestore';
 import {
   AssessmentSessionRevisionConflictError,
   getAssessmentSession,
@@ -14,7 +18,6 @@ import {
 
 const SubmitSchema = z.object({
   sessionId: z.string(),
-  userHandle: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -26,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid submission parameters' }, { status: 400 });
     }
 
-    const { sessionId, userHandle } = parsed.data;
+    const { sessionId } = parsed.data;
     const session = await getAssessmentSession(sessionId);
 
     if (!session) {
@@ -76,12 +79,12 @@ export async function POST(req: NextRequest) {
     }
 
     const expectedRevision = session.revision ?? 0;
-    const handle =
-      userHandle?.trim() ||
-      session.userHandle ||
-      (sessionUser?.displayName
-        ? sessionUser.displayName.toLowerCase().replace(/[^a-z0-9_]/g, '')
-        : `writer_${Math.random().toString(36).substring(2, 6)}`);
+    const serverProfile = sessionUser?.uid
+      ? await getServerUserProfile(sessionUser.uid)
+      : null;
+    const handle = sessionUser?.uid
+      ? serverProfile?.handle || `writer_${sessionUser.uid.slice(0, 8)}`
+      : `guest_${randomUUID().replace(/-/g, '').slice(0, 10)}`;
 
     const completedAt = Date.now();
     const finalScore = calculateFinalScore(
@@ -92,8 +95,6 @@ export async function POST(req: NextRequest) {
       handle
     );
 
-    // If a guest signs in before finalization, the valid guest credential proves
-    // ownership and the attempt can become account-owned without trusting client score data.
     if (sessionUser?.uid && !session.ownerUid) {
       session.ownerUid = sessionUser.uid;
       session.userId = sessionUser.uid;
