@@ -11,6 +11,12 @@ import {
   setAssessmentGuestCookie,
 } from '@/lib/auth/assessment-guest';
 import { createAssessmentSession } from '@/lib/domains/assessments/session-repository';
+import {
+  ASSESSMENT_RATE_LIMITS,
+  createRateLimitExceededResponse,
+  enforceDistributedRateLimit,
+  resolveRateLimitSubject,
+} from '@/lib/security/rate-limit';
 
 const StartSchema = z.object({
   challengeCode: z.string().optional(),
@@ -22,6 +28,15 @@ export async function POST(req: NextRequest) {
     const parsed = StartSchema.safeParse(body);
     const data = parsed.success ? parsed.data : {};
     const sessionUser = await getServerSessionUser();
+    const rateLimit = await enforceDistributedRateLimit({
+      scope: 'assessment:start',
+      subject: resolveRateLimitSubject(req, { userUid: sessionUser?.uid }),
+      rule: ASSESSMENT_RATE_LIMITS.start,
+    });
+    if (!rateLimit.allowed) {
+      return createRateLimitExceededResponse(rateLimit);
+    }
+
     const sessionId = `att_${randomUUID()}`;
     const now = Date.now();
     const guestCredential = sessionUser
