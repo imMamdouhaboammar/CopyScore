@@ -13,7 +13,6 @@ import {
 import { createAssessmentSession } from '@/lib/domains/assessments/session-repository';
 
 const StartSchema = z.object({
-  userHandle: z.string().optional(),
   challengeCode: z.string().optional(),
 });
 
@@ -55,7 +54,6 @@ export async function POST(req: NextRequest) {
       userId: sessionUser?.uid,
       ownerUid: sessionUser?.uid,
       guestAccessHash: guestCredential?.accessHash,
-      userHandle: data.userHandle,
       createdAt: now,
       expiresAt: now + ASSESSMENT_SESSION_TTL_MS,
       revision: 0,
