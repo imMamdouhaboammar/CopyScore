@@ -11,8 +11,8 @@ import {
   signOutUser as fbSignOutUser,
   sendPasswordReset as fbSendPasswordReset,
   syncServerSession,
+  getCurrentServerProfile,
 } from '../firebase/auth';
-import { ensureUserProfile, getUserProfile } from '../firebase/firestore';
 import { UserProfile } from '../types/auth';
 import { FinalAssessmentScore } from '../types/assessment';
 
@@ -62,19 +62,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(null);
       return;
     }
+
     try {
-      const existingProfile = await getUserProfile(user.uid);
-      if (existingProfile) {
-        setProfile(existingProfile);
-      } else {
-        const newProfile = await ensureUserProfile(user.uid, {
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-          emailVerified: user.emailVerified,
-        });
-        setProfile(newProfile);
-      }
+      setProfile(await getCurrentServerProfile());
     } catch (err) {
       console.error('Failed to load profile', err);
     }
@@ -88,23 +78,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!mounted) return;
       setUser(currentUser);
 
-      if (currentUser) {
-        setLoading(false);
-        try {
-          syncServerSession(currentUser, true).catch(() => {});
-          const currentProfile = await ensureUserProfile(currentUser.uid, {
-            email: currentUser.email,
-            displayName: currentUser.displayName,
-            photoURL: currentUser.photoURL,
-            emailVerified: currentUser.emailVerified,
-          });
-          if (mounted) setProfile(currentProfile);
-        } catch (err) {
-          console.error('Error synchronizing user on auth change', err);
-        }
-      } else {
+      if (!currentUser) {
         setProfile(null);
         setLoading(false);
+        return;
+      }
+
+      try {
+        const synced = await syncServerSession(currentUser, true);
+        if (!synced) throw new Error('Failed to establish server session');
+        const currentProfile = await getCurrentServerProfile();
+        if (mounted) setProfile(currentProfile);
+      } catch (err) {
+        console.error('Error synchronizing user on auth change', err);
+        if (mounted) setProfile(null);
+      } finally {
+        if (mounted) setLoading(false);
       }
     });
 
