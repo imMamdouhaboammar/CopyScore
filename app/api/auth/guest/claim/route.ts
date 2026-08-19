@@ -1,19 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth/session';
-import { claimGuestAssessment } from '@/lib/firebase/firestore';
-import { FinalAssessmentScore } from '@/lib/types/assessment';
+import { guestClaimSchema } from '@/lib/auth/schemas';
+import { claimServerGuestAssessment } from '@/lib/firebase/server-firestore';
+import { store } from '@/lib/storage/store';
 
 export async function POST(req: NextRequest) {
   try {
     const user = await requireUser();
     const body = await req.json();
-    const score = body.score as FinalAssessmentScore;
+    const parsed = guestClaimSchema.safeParse(body);
 
-    if (!score || !score.overallScore || !score.attemptId) {
-      return NextResponse.json({ error: 'Valid assessment score object is required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'A valid assessment attempt id is required' },
+        { status: 400 }
+      );
     }
 
-    const { profile, leaderboardEntry } = await claimGuestAssessment(user.uid, score);
+    const trustedScore = store.getFinalScore(parsed.data.attemptId);
+    if (!trustedScore) {
+      return NextResponse.json(
+        { error: 'Guest assessment is no longer claimable' },
+        { status: 409 }
+      );
+    }
+
+    const { profile, leaderboardEntry } = await claimServerGuestAssessment(
+      user.uid,
+      trustedScore
+    );
 
     return NextResponse.json({
       success: true,
