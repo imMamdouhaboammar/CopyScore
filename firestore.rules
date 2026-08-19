@@ -64,6 +64,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Audit events are server-only operational records. Even authenticated
+    // admins must use trusted server tooling rather than client Firestore SDKs.
+    match /auditEvents/{eventId} {
+      allow read, write: if false;
+    }
+
     match /aiResources/{resourceId} {
       allow read: if true;
       allow write: if isAdmin();
