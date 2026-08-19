@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { calculateFinalScore } from '@/lib/engine/scoring';
 import { store } from '@/lib/storage/store';
 import { getServerSessionUser } from '@/lib/auth/session';
-import { saveAssessmentResult } from '@/lib/firebase/firestore';
+import { saveServerAssessmentResult } from '@/lib/firebase/server-firestore';
 
 const SubmitSchema = z.object({
   sessionId: z.string(),
@@ -26,13 +26,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // Finalization has external side effects (Firestore persistence and challenge
-    // mutations). A network retry must return the already-finalized result rather
-    // than calculate or persist it a second time.
     if (session.isCompleted) {
       if (!session.finalScore || !session.userHandle) {
         console.error('Completed assessment session is missing its finalized result', { sessionId });
-        return NextResponse.json({ error: 'Assessment finalization state is inconsistent' }, { status: 409 });
+        return NextResponse.json(
+          { error: 'Assessment finalization state is inconsistent' },
+          { status: 409 }
+        );
       }
 
       return NextResponse.json({
@@ -43,10 +43,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Check if user is logged in
     const sessionUser = await getServerSessionUser();
+    const handle =
+      userHandle?.trim() ||
+      session.userHandle ||
+      (sessionUser?.displayName
+        ? sessionUser.displayName.toLowerCase().replace(/[^a-z0-9_]/g, '')
+        : `writer_${Math.random().toString(36).substring(2, 6)}`);
 
-    const handle = userHandle?.trim() || session.userHandle || (sessionUser?.displayName ? sessionUser.displayName.toLowerCase().replace(/[^a-z0-9_]/g, '') : `writer_${Math.random().toString(36).substring(2, 6)}`);
     const finalScore = calculateFinalScore(
       sessionId,
       session.responses,
@@ -62,16 +66,14 @@ export async function POST(req: NextRequest) {
     store.saveSession(session);
     store.saveFinalScore(finalScore);
 
-    // If user is authenticated on server, persist to Firestore
     if (sessionUser?.uid) {
       try {
-        await saveAssessmentResult(finalScore, sessionUser.uid);
+        await saveServerAssessmentResult(finalScore, sessionUser.uid);
       } catch (err) {
-        console.warn('Failed to save assessment to Firestore', err);
+        console.warn('Failed to persist assessment result', err);
       }
     }
 
-    // If this was a head-to-head challenge, record attempt against the challenge
     if (session.challengeOrigin) {
       store.recordChallengeAttempt(
         session.challengeOrigin.challengeCode,
@@ -80,7 +82,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Auto-create a challenge entry for this user so they can immediately challenge others
     store.createChallenge({
       challengeCode: handle.toLowerCase(),
       creatorHandle: handle,
