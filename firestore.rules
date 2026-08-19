@@ -55,6 +55,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Abuse-control counters may reveal request patterns and are Admin SDK only.
+    match /rateLimits/{entryId} {
+      allow read, write: if false;
+    }
+
     // Curated AI resources and collections are public-read, admin-write.
     match /aiResources/{resourceId} {
       allow read: if true;
