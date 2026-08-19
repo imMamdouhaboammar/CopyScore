@@ -2,6 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { calculateFinalScore } from '@/lib/engine/scoring';
+import {
+  resolveScoreSigningSecret,
+  ScoreVerificationConfigurationError,
+  signFinalAssessmentScore,
+} from '@/lib/engine/score-verification';
 import { store } from '@/lib/storage/store';
 import { getServerSessionUser } from '@/lib/auth/session';
 import { getAssessmentGuestAccessHash } from '@/lib/auth/assessment-guest';
@@ -87,13 +92,17 @@ export async function POST(req: NextRequest) {
       : `guest_${randomUUID().replace(/-/g, '').slice(0, 10)}`;
 
     const completedAt = Date.now();
-    const finalScore = calculateFinalScore(
+    const calculatedScore = calculateFinalScore(
       sessionId,
       session.responses,
       session.startTime,
       completedAt,
       handle
     );
+    const signingSecret = resolveScoreSigningSecret();
+    const finalScore = signingSecret
+      ? signFinalAssessmentScore(calculatedScore, signingSecret)
+      : calculatedScore;
 
     if (sessionUser?.uid && !session.ownerUid) {
       session.ownerUid = sessionUser.uid;
@@ -161,6 +170,17 @@ export async function POST(req: NextRequest) {
       challengeOrigin: session.challengeOrigin,
     });
   } catch (error) {
+    if (error instanceof ScoreVerificationConfigurationError) {
+      console.error('Score verification is not configured for finalization', error);
+      return NextResponse.json(
+        {
+          error: 'Score verification is temporarily unavailable',
+          code: error.code,
+        },
+        { status: 503 }
+      );
+    }
+
     if (error instanceof AssessmentSessionRevisionConflictError) {
       return NextResponse.json(
         {
