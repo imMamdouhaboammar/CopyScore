@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isHandleAvailable } from '@/lib/firebase/firestore';
+import { isServerHandleAvailable } from '@/lib/firebase/server-firestore';
 import { getServerSessionUser } from '@/lib/auth/session';
 import { normalizeHandle, isHandleReserved } from '@/lib/auth/schemas';
 
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   }
 
   const currentUser = await getServerSessionUser();
-  const available = await isHandleAvailable(handle, currentUser?.uid);
+  const available = await isServerHandleAvailable(handle, currentUser?.uid);
 
   return NextResponse.json({ available, handle });
 }
