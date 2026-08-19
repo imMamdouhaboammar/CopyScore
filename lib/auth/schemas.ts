@@ -119,6 +119,26 @@ export const profileUpdateSchema = z.object({
   leaderboardVisible: z.boolean(),
 });
 
+export const profilePatchSchema = z
+  .object({
+    displayName: z.string().min(2, 'Display name must be at least 2 characters').max(50).optional(),
+    handle: handleSchema.optional(),
+    avatarUrl: z.string().url('Must be a valid URL').or(z.literal('')).optional(),
+    roleTitle: z.string().max(80).optional(),
+    company: z.string().max(80).optional(),
+    bio: z.string().max(280, 'Bio cannot exceed 280 characters').optional(),
+    countryCode: z.string().max(3).optional(),
+    publicProfile: z.boolean().optional(),
+    isPublic: z.boolean().optional(),
+    leaderboardVisible: z.boolean().optional(),
+    showRankOnLeaderboard: z.boolean().optional(),
+    allowChallenges: z.boolean().optional(),
+  })
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one profile field is required',
+  });
+
 export const guestClaimSchema = z
   .object({
     attemptId: z.string().trim().min(1).max(128),
