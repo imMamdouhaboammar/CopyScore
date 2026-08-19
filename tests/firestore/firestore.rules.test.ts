@@ -120,6 +120,29 @@ describe('Firestore trust boundaries', () => {
     );
   });
 
+  it('denies clients from reading or mutating distributed rate-limit state', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'rateLimits', 'bucket-1'), {
+        scope: 'assessment:evaluate',
+        count: 3,
+        windowStartedAt: Date.now(),
+      });
+    });
+
+    const userA = testEnv.authenticatedContext('user-a');
+    const anonymous = testEnv.unauthenticatedContext();
+
+    await assertFails(getDoc(doc(userA.firestore(), 'rateLimits', 'bucket-1')));
+    await assertFails(getDoc(doc(anonymous.firestore(), 'rateLimits', 'bucket-1')));
+    await assertFails(
+      setDoc(doc(userA.firestore(), 'rateLimits', 'bucket-1'), {
+        scope: 'assessment:evaluate',
+        count: 0,
+        windowStartedAt: Date.now(),
+      })
+    );
+  });
+
   it('allows users to manage only their own AI stack', async () => {
     const userA = testEnv.authenticatedContext('user-a');
 

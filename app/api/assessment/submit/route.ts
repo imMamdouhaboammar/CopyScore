@@ -20,6 +20,12 @@ import {
   getAssessmentSession,
   saveAssessmentSession,
 } from '@/lib/domains/assessments/session-repository';
+import {
+  ASSESSMENT_RATE_LIMITS,
+  createRateLimitExceededResponse,
+  enforceDistributedRateLimit,
+  resolveRateLimitSubject,
+} from '@/lib/security/rate-limit';
 
 const SubmitSchema = z.object({
   sessionId: z.string(),
@@ -54,6 +60,15 @@ export async function POST(req: NextRequest) {
         { error: access.error, code: access.code },
         { status: access.status }
       );
+    }
+
+    const rateLimit = await enforceDistributedRateLimit({
+      scope: 'assessment:submit',
+      subject: resolveRateLimitSubject(req, { sessionId }),
+      rule: ASSESSMENT_RATE_LIMITS.submit,
+    });
+    if (!rateLimit.allowed) {
+      return createRateLimitExceededResponse(rateLimit);
     }
 
     if (session.isCompleted) {
@@ -136,8 +151,6 @@ export async function POST(req: NextRequest) {
       throw error;
     }
 
-    // Legacy projections stay in-process for challenge UI until the dedicated
-    // challenge/leaderboard persistence slice replaces them.
     store.saveFinalScore(finalScore);
 
     if (session.challengeOrigin) {

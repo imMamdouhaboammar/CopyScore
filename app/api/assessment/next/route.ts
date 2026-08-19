@@ -11,6 +11,12 @@ import {
   getAssessmentSession,
   saveAssessmentSession,
 } from '@/lib/domains/assessments/session-repository';
+import {
+  ASSESSMENT_RATE_LIMITS,
+  createRateLimitExceededResponse,
+  enforceDistributedRateLimit,
+  resolveRateLimitSubject,
+} from '@/lib/security/rate-limit';
 
 const NextQuestionSchema = z.object({
   sessionId: z.string(),
@@ -49,6 +55,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const rateLimit = await enforceDistributedRateLimit({
+      scope: 'assessment:next',
+      subject: resolveRateLimitSubject(req, { sessionId }),
+      rule: ASSESSMENT_RATE_LIMITS.next,
+    });
+    if (!rateLimit.allowed) {
+      return createRateLimitExceededResponse(rateLimit);
+    }
+
     const integrity = validateAssessmentAnswer(session, questionId);
     if (!integrity.ok) {
       return NextResponse.json({ error: integrity.error }, { status: integrity.status });
@@ -82,8 +97,6 @@ export async function POST(req: NextRequest) {
     session.currentQuestion = selection.nextQuestion || undefined;
     session.questionIndex = session.answeredQuestionIds.length;
 
-    // Completing the question sequence is not the same as finalizing the score.
-    // /submit is the only route allowed to set isCompleted/finalScore.
     if (selection.isCompleted) {
       session.stage = 'COMPLETED';
       session.currentQuestion = undefined;

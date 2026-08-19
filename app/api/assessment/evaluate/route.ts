@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { GoogleGenAI } from '@google/genai';
 import { EvaluationResultSchema } from '@/lib/ai/evaluation-schema';
+import { getServerSessionUser } from '@/lib/auth/session';
+import {
+  ASSESSMENT_RATE_LIMITS,
+  createRateLimitExceededResponse,
+  enforceDistributedRateLimit,
+  resolveRateLimitSubject,
+} from '@/lib/security/rate-limit';
 
 const EVALUATOR_VERSION = 'assessment-evaluator-v2';
 const MODEL_ID = 'gemini-2.5-flash';
@@ -18,6 +25,16 @@ const EvaluateSchema = z
 
 export async function POST(req: NextRequest) {
   try {
+    const sessionUser = await getServerSessionUser();
+    const rateLimit = await enforceDistributedRateLimit({
+      scope: 'assessment:evaluate',
+      subject: resolveRateLimitSubject(req, { userUid: sessionUser?.uid }),
+      rule: ASSESSMENT_RATE_LIMITS.evaluate,
+    });
+    if (!rateLimit.allowed) {
+      return createRateLimitExceededResponse(rateLimit);
+    }
+
     const body = await req.json();
     const parsed = EvaluateSchema.safeParse(body);
 
