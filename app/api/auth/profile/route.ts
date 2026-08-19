@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSessionUser, requireUser } from '@/lib/auth/session';
 import { getServerUserProfile, updateServerUserProfile } from '@/lib/firebase/server-firestore';
 import { profilePatchSchema } from '@/lib/auth/schemas';
+import { syncServerChallengeHandle } from '@/lib/domains/rankings/server-rankings';
 
 export async function GET() {
   try {
@@ -30,7 +31,18 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    const previous = await getServerUserProfile(user.uid);
     const updated = await updateServerUserProfile(user.uid, parsed.data);
+
+    if (previous?.handle !== updated.handle) {
+      await syncServerChallengeHandle({
+        previousHandle: previous?.handle,
+        nextHandle: updated.handle,
+        score: updated.bestScore,
+        ownerUid: user.uid,
+      });
+    }
+
     return NextResponse.json({ success: true, profile: updated });
   } catch (err: unknown) {
     console.error('Profile update error', err);
