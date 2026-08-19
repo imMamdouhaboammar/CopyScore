@@ -189,6 +189,12 @@ export interface AssessmentSessionState {
   sessionId: string;
   userId?: string;
   userHandle?: string;
+  ownerUid?: string;
+  guestAccessHash?: string;
+  claimedByUid?: string;
+  createdAt?: number;
+  expiresAt?: number;
+  revision?: number;
   stage: AssessmentStage;
   questionIndex: number;
   totalEstimatedQuestions: number;

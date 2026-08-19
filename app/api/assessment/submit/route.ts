@@ -1,13 +1,23 @@
+import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { calculateFinalScore } from '@/lib/engine/scoring';
 import { store } from '@/lib/storage/store';
 import { getServerSessionUser } from '@/lib/auth/session';
-import { saveAssessmentResult } from '@/lib/firebase/firestore';
+import { getAssessmentGuestAccessHash } from '@/lib/auth/assessment-guest';
+import { validateAssessmentSessionAccess } from '@/lib/engine/assessment-session-policy';
+import {
+  getServerUserProfile,
+  saveServerAssessmentResult,
+} from '@/lib/firebase/server-firestore';
+import {
+  AssessmentSessionRevisionConflictError,
+  getAssessmentSession,
+  saveAssessmentSession,
+} from '@/lib/domains/assessments/session-repository';
 
 const SubmitSchema = z.object({
   sessionId: z.string(),
-  userHandle: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -19,20 +29,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid submission parameters' }, { status: 400 });
     }
 
-    const { sessionId, userHandle } = parsed.data;
-    const session = store.getSession(sessionId);
+    const { sessionId } = parsed.data;
+    const session = await getAssessmentSession(sessionId);
 
     if (!session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // Finalization has external side effects (Firestore persistence and challenge
-    // mutations). A network retry must return the already-finalized result rather
-    // than calculate or persist it a second time.
+    const sessionUser = await getServerSessionUser();
+    const guestAccessHash = await getAssessmentGuestAccessHash(sessionId);
+    const access = validateAssessmentSessionAccess(session, {
+      now: Date.now(),
+      userUid: sessionUser?.uid,
+      guestAccessHash,
+    });
+
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: access.error, code: access.code },
+        { status: access.status }
+      );
+    }
+
     if (session.isCompleted) {
       if (!session.finalScore || !session.userHandle) {
         console.error('Completed assessment session is missing its finalized result', { sessionId });
-        return NextResponse.json({ error: 'Assessment finalization state is inconsistent' }, { status: 409 });
+        return NextResponse.json(
+          { error: 'Assessment finalization state is inconsistent' },
+          { status: 409 }
+        );
       }
 
       return NextResponse.json({
@@ -43,35 +68,69 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Check if user is logged in
-    const sessionUser = await getServerSessionUser();
+    if (session.stage !== 'COMPLETED' || session.currentQuestion) {
+      return NextResponse.json(
+        {
+          error: 'Assessment questions must be completed before score finalization',
+          code: 'ASSESSMENT_NOT_READY_FOR_FINALIZATION',
+        },
+        { status: 409 }
+      );
+    }
 
-    const handle = userHandle?.trim() || session.userHandle || (sessionUser?.displayName ? sessionUser.displayName.toLowerCase().replace(/[^a-z0-9_]/g, '') : `writer_${Math.random().toString(36).substring(2, 6)}`);
+    const expectedRevision = session.revision ?? 0;
+    const serverProfile = sessionUser?.uid
+      ? await getServerUserProfile(sessionUser.uid)
+      : null;
+    const handle = sessionUser?.uid
+      ? serverProfile?.handle || `writer_${sessionUser.uid.slice(0, 8)}`
+      : `guest_${randomUUID().replace(/-/g, '').slice(0, 10)}`;
+
+    const completedAt = Date.now();
     const finalScore = calculateFinalScore(
       sessionId,
       session.responses,
       session.startTime,
-      Date.now(),
+      completedAt,
       handle
     );
+
+    if (sessionUser?.uid && !session.ownerUid) {
+      session.ownerUid = sessionUser.uid;
+      session.userId = sessionUser.uid;
+      session.claimedByUid = sessionUser.uid;
+    }
+
+    if (sessionUser?.uid) {
+      await saveServerAssessmentResult(finalScore, sessionUser.uid);
+    }
 
     session.isCompleted = true;
     session.finalScore = finalScore;
     session.userHandle = handle;
+    session.lastActiveTime = completedAt;
 
-    store.saveSession(session);
-    store.saveFinalScore(finalScore);
-
-    // If user is authenticated on server, persist to Firestore
-    if (sessionUser?.uid) {
-      try {
-        await saveAssessmentResult(finalScore, sessionUser.uid);
-      } catch (err) {
-        console.warn('Failed to save assessment to Firestore', err);
+    try {
+      await saveAssessmentSession(session, expectedRevision);
+    } catch (error) {
+      if (error instanceof AssessmentSessionRevisionConflictError) {
+        const latest = await getAssessmentSession(sessionId);
+        if (latest?.isCompleted && latest.finalScore && latest.userHandle) {
+          return NextResponse.json({
+            success: true,
+            result: latest.finalScore,
+            challengeCode: latest.userHandle.toLowerCase(),
+            challengeOrigin: latest.challengeOrigin,
+          });
+        }
       }
+      throw error;
     }
 
-    // If this was a head-to-head challenge, record attempt against the challenge
+    // Legacy projections stay in-process for challenge UI until the dedicated
+    // challenge/leaderboard persistence slice replaces them.
+    store.saveFinalScore(finalScore);
+
     if (session.challengeOrigin) {
       store.recordChallengeAttempt(
         session.challengeOrigin.challengeCode,
@@ -80,7 +139,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Auto-create a challenge entry for this user so they can immediately challenge others
     store.createChallenge({
       challengeCode: handle.toLowerCase(),
       creatorHandle: handle,
@@ -103,6 +161,16 @@ export async function POST(req: NextRequest) {
       challengeOrigin: session.challengeOrigin,
     });
   } catch (error) {
+    if (error instanceof AssessmentSessionRevisionConflictError) {
+      return NextResponse.json(
+        {
+          error: 'Assessment state changed before finalization completed. Retry the submission.',
+          code: 'ASSESSMENT_SESSION_REVISION_CONFLICT',
+        },
+        { status: 409 }
+      );
+    }
+
     console.error('Error finalizing assessment score:', error);
     return NextResponse.json({ error: 'Failed to finalize score' }, { status: 500 });
   }

@@ -1,10 +1,9 @@
 'use client';
 
 import React from 'react';
-import { SecurityChecklist } from '@/lib/types/ai-upscale';
+import { SecurityAccess } from '@/lib/types/ai-upscale';
 import {
   ShieldCheck,
-  ShieldAlert,
   Lock,
   Globe,
   FileCode,
@@ -15,7 +14,7 @@ import {
 } from 'lucide-react';
 
 interface SecurityAccessPanelProps {
-  security: SecurityChecklist;
+  security: SecurityAccess;
   sourceUrl?: string;
 }
 
@@ -37,7 +36,7 @@ export function SecurityAccessPanel({ security, sourceUrl }: SecurityAccessPanel
       allowed: security.networkAccess,
       note: security.networkAccess
         ? 'Connects to remote APIs / services'
-        : 'Fully airgapped / zero outbound traffic',
+        : 'No outbound network access declared',
     },
     {
       id: 'reads_files',
@@ -45,8 +44,8 @@ export function SecurityAccessPanel({ security, sourceUrl }: SecurityAccessPanel
       icon: FileCode,
       allowed: security.readsProjectFiles,
       note: security.readsProjectFiles
-        ? 'Scans workspace for context'
-        : 'Does not read disk files automatically',
+        ? 'Reads workspace files for context'
+        : 'Does not read project files automatically',
     },
     {
       id: 'writes_files',
@@ -54,8 +53,8 @@ export function SecurityAccessPanel({ security, sourceUrl }: SecurityAccessPanel
       icon: HardDrive,
       allowed: security.writesProjectFiles,
       note: security.writesProjectFiles
-        ? 'Can output saved files to disk'
-        : 'Read-only outputs in chat context',
+        ? 'Can write output files to the project'
+        : 'Does not write project files',
     },
     {
       id: 'api_key',
@@ -63,8 +62,8 @@ export function SecurityAccessPanel({ security, sourceUrl }: SecurityAccessPanel
       icon: Key,
       allowed: security.requiresApiKey,
       note: security.requiresApiKey
-        ? 'Requires 3rd-party API key'
-        : 'Uses your existing AI subscription only',
+        ? 'Requires a third-party API key'
+        : 'No additional API key declared',
     },
     {
       id: 'shell',
@@ -72,8 +71,8 @@ export function SecurityAccessPanel({ security, sourceUrl }: SecurityAccessPanel
       icon: Lock,
       allowed: security.shellAccess,
       note: security.shellAccess
-        ? 'Runs shell sub-processes'
-        : 'No bash/zsh shell subshell access',
+        ? 'Can run shell sub-processes'
+        : 'No shell access declared',
     },
   ];
 
@@ -82,27 +81,39 @@ export function SecurityAccessPanel({ security, sourceUrl }: SecurityAccessPanel
       bg: 'bg-[#eaf8ee]',
       border: 'border-[#15803d]',
       text: 'text-[#15803d]',
-      label: 'SAFE & SANDBOXED',
+      label: 'LOW DECLARED ACCESS',
     },
     moderate: {
       bg: 'bg-[#fef4e6]',
       border: 'border-[#b45309]',
       text: 'text-[#b45309]',
-      label: 'MODERATE ACCESS',
+      label: 'MODERATE DECLARED ACCESS',
     },
     elevated: {
       bg: 'bg-[#fdf2f2]',
       border: 'border-[#b91c1c]',
       text: 'text-[#b91c1c]',
-      label: 'ELEVATED SYSTEM PERMISSIONS',
+      label: 'ELEVATED DECLARED ACCESS',
     },
   };
 
-  const priv = privacyLevelConfig[security.dataPrivacyRating];
+  const elevatedSignals = [
+    security.shellAccess,
+    security.writesProjectFiles,
+    security.networkAccess,
+    security.requiresOAuth,
+    security.requiresApiKey,
+  ].filter(Boolean).length;
+
+  const privacyLevel: keyof typeof privacyLevelConfig =
+    elevatedSignals <= 1 ? 'safe' : elevatedSignals <= 3 ? 'moderate' : 'elevated';
+  const priv = privacyLevelConfig[privacyLevel];
 
   return (
-    <section className="patter-card bg-white shadow-[4px_4px_0px_#0f0f11] overflow-hidden" id="security">
-      {/* Header */}
+    <section
+      className="patter-card bg-white shadow-[4px_4px_0px_#0f0f11] overflow-hidden"
+      id="security"
+    >
       <div className="border-b-[1.5px] border-[#0f0f11] bg-[#fcfbf8] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-[#15803d]" />
@@ -111,14 +122,15 @@ export function SecurityAccessPanel({ security, sourceUrl }: SecurityAccessPanel
           </h2>
         </div>
 
-        <div className={`flex items-center gap-1.5 px-2.5 py-0.5 border text-xs font-mono font-bold ${priv.bg} ${priv.border} ${priv.text}`}>
+        <div
+          className={`flex items-center gap-1.5 px-2.5 py-0.5 border text-xs font-mono font-bold ${priv.bg} ${priv.border} ${priv.text}`}
+        >
           <Lock className="w-3 h-3" />
           <span>{priv.label}</span>
         </div>
       </div>
 
       <div className="p-5 sm:p-6 space-y-5">
-        {/* Security Checklist Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {items.map((item) => {
             const Icon = item.icon;
@@ -154,21 +166,22 @@ export function SecurityAccessPanel({ security, sourceUrl }: SecurityAccessPanel
           })}
         </div>
 
-        {/* Security Notes & Source */}
         <div className="p-4 bg-[#f7f6f0] border border-[#0f0f11] space-y-2">
-          <div className="text-xs font-mono font-bold text-[#0f0f11] flex items-center justify-between">
+          <div className="text-xs font-mono font-bold text-[#0f0f11] flex items-center justify-between gap-3">
             <span>CURATOR SECURITY NOTE:</span>
-            {security.isOpenSource && (
+            {sourceUrl && (
               <span className="text-[10px] bg-[#df9367] text-[#0f0f11] px-1.5 py-0.2">
-                OPEN SOURCE REPOSITORY
+                SOURCE LINK AVAILABLE
               </span>
             )}
           </div>
-          <p className="text-xs text-[#52525b] leading-relaxed">{security.notes}</p>
+          <p className="text-xs text-[#52525b] leading-relaxed">
+            {security.notes || 'No additional curator security notes were recorded.'}
+          </p>
           {sourceUrl && (
-            <div className="pt-2 border-t border-[#e5e4dc] flex items-center justify-between">
+            <div className="pt-2 border-t border-[#e5e4dc] flex items-center justify-between gap-3">
               <span className="text-[11px] font-mono text-[#8c8b85]">
-                Verified against public source code:
+                Review the declared source before installation:
               </span>
               <a
                 href={sourceUrl}
@@ -176,7 +189,7 @@ export function SecurityAccessPanel({ security, sourceUrl }: SecurityAccessPanel
                 rel="noreferrer"
                 className="text-xs font-mono text-[#df9367] hover:underline flex items-center gap-1"
               >
-                <span>Inspect Repository Source</span>
+                <span>Inspect Source</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
             </div>

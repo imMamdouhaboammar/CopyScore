@@ -1,11 +1,18 @@
+import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { AssessmentSessionState } from '@/lib/types/assessment';
 import { selectNextAdaptiveQuestion } from '@/lib/engine/adaptive';
 import { store } from '@/lib/storage/store';
+import { getServerSessionUser } from '@/lib/auth/session';
+import {
+  ASSESSMENT_SESSION_TTL_MS,
+  createAssessmentGuestCredential,
+  setAssessmentGuestCookie,
+} from '@/lib/auth/assessment-guest';
+import { createAssessmentSession } from '@/lib/domains/assessments/session-repository';
 
 const StartSchema = z.object({
-  userHandle: z.string().optional(),
   challengeCode: z.string().optional(),
 });
 
@@ -14,8 +21,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const parsed = StartSchema.safeParse(body);
     const data = parsed.success ? parsed.data : {};
-
-    const sessionId = `att_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const sessionUser = await getServerSessionUser();
+    const sessionId = `att_${randomUUID()}`;
+    const now = Date.now();
+    const guestCredential = sessionUser
+      ? undefined
+      : createAssessmentGuestCredential(sessionId);
 
     let challengeOrigin: AssessmentSessionState['challengeOrigin'] = undefined;
     if (data.challengeCode) {
@@ -40,7 +51,12 @@ export async function POST(req: NextRequest) {
 
     const session: AssessmentSessionState = {
       sessionId,
-      userHandle: data.userHandle,
+      userId: sessionUser?.uid,
+      ownerUid: sessionUser?.uid,
+      guestAccessHash: guestCredential?.accessHash,
+      createdAt: now,
+      expiresAt: now + ASSESSMENT_SESSION_TTL_MS,
+      revision: 0,
       stage: firstSelection.stage,
       questionIndex: 0,
       totalEstimatedQuestions: firstSelection.totalQuestions,
@@ -48,15 +64,15 @@ export async function POST(req: NextRequest) {
       responses: [],
       currentDifficulty: initialSkills,
       currentQuestion: firstSelection.nextQuestion || undefined,
-      startTime: Date.now(),
-      lastActiveTime: Date.now(),
+      startTime: now,
+      lastActiveTime: now,
       isCompleted: false,
       challengeOrigin,
     };
 
-    store.saveSession(session);
+    await createAssessmentSession(session);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       sessionId,
       question: firstSelection.nextQuestion,
@@ -66,6 +82,12 @@ export async function POST(req: NextRequest) {
       estimatedConfidence: firstSelection.estimatedConfidence,
       challengeOrigin,
     });
+
+    if (guestCredential) {
+      setAssessmentGuestCookie(response, guestCredential.cookieValue);
+    }
+
+    return response;
   } catch (error) {
     console.error('Error starting assessment:', error);
     return NextResponse.json({ error: 'Failed to initialize assessment session' }, { status: 500 });

@@ -103,7 +103,7 @@ export default function Home() {
         const searchParams = new URLSearchParams(window.location.search);
         const viewParam = searchParams.get('view');
         if (viewParam === 'leaderboard' || viewParam === 'pricing' || viewParam === 'challenge') {
-          setCurrentView(viewParam as any);
+          setCurrentView(viewParam as NavViewType);
         } else if (searchParams.get('challenge')) {
           setCurrentView('challenge');
         } else {
@@ -139,7 +139,6 @@ export default function Home() {
         setChallengeOrigin(data.challengeOrigin);
         setCurrentView('assessment');
 
-        // Save session ID locally
         localStorage.setItem(
           LOCAL_STORAGE_SESSION_KEY,
           JSON.stringify({ sessionId: data.sessionId, challengeOrigin: data.challengeOrigin })
@@ -151,6 +150,110 @@ export default function Home() {
       setIsSubmitting(false);
     }
   };
+
+  // Handler: Finalize Score
+  const handleFinalizeScore = useCallback(async (activeSessionId: string) => {
+    try {
+      const res = await fetch('/api/assessment/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: activeSessionId }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.result) {
+        setFinalScore(data.result);
+        setSessionId(null);
+        setCurrentQuestion(null);
+        localStorage.setItem(LOCAL_STORAGE_SCORE_KEY, JSON.stringify(data.result));
+        localStorage.removeItem(LOCAL_STORAGE_SESSION_KEY);
+        setCurrentView('reveal');
+      }
+    } catch (err) {
+      console.error('Error finalizing score', err);
+    }
+  }, []);
+
+  // Recover an active server-owned assessment after refresh, process restart, or
+  // a crash between the last answer and score finalization.
+  useEffect(() => {
+    let cancelled = false;
+
+    const recoverSession = async () => {
+      const raw = localStorage.getItem(LOCAL_STORAGE_SESSION_KEY);
+      if (!raw) return;
+
+      let activeSessionId: string | undefined;
+      try {
+        const saved = JSON.parse(raw) as { sessionId?: string };
+        activeSessionId = saved.sessionId;
+      } catch {
+        localStorage.removeItem(LOCAL_STORAGE_SESSION_KEY);
+        return;
+      }
+
+      if (!activeSessionId) {
+        localStorage.removeItem(LOCAL_STORAGE_SESSION_KEY);
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `/api/assessment/session?sessionId=${encodeURIComponent(activeSessionId)}`,
+          { cache: 'no-store' }
+        );
+
+        if ([403, 404, 410].includes(res.status)) {
+          localStorage.removeItem(LOCAL_STORAGE_SESSION_KEY);
+          return;
+        }
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (cancelled || !data?.success) return;
+
+        if (data.isCompleted && data.result) {
+          setFinalScore(data.result);
+          setSessionId(null);
+          setCurrentQuestion(null);
+          localStorage.setItem(LOCAL_STORAGE_SCORE_KEY, JSON.stringify(data.result));
+          localStorage.removeItem(LOCAL_STORAGE_SESSION_KEY);
+          setCurrentView('results');
+          return;
+        }
+
+        if (data.readyForFinalization) {
+          setSessionId(activeSessionId);
+          await handleFinalizeScore(activeSessionId);
+          return;
+        }
+
+        if (data.question) {
+          setSessionId(activeSessionId);
+          setCurrentQuestion(data.question);
+          setCurrentStage(data.stage);
+          setQuestionNumber(data.questionNumber || 1);
+          setTotalQuestions(data.totalEstimatedQuestions || 10);
+          setEstimatedConfidence(data.estimatedConfidence || 45);
+          setChallengeOrigin(data.challengeOrigin);
+
+          const searchParams = new URLSearchParams(window.location.search);
+          const hasExplicitDestination =
+            !!searchParams.get('challenge') || !!searchParams.get('view');
+          if (!hasExplicitDestination) {
+            setCurrentView('assessment');
+          }
+        }
+      } catch (err) {
+        console.error('Failed to recover assessment session', err);
+      }
+    };
+
+    void recoverSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [handleFinalizeScore]);
 
   // Handler: Submit Question Answer
   const handleSubmitAnswer = async (userAnswer: string | string[], timeSpentMs: number) => {
@@ -172,7 +275,6 @@ export default function Home() {
       const data = await res.json();
 
       if (data.isCompleted) {
-        // Finalize assessment on server
         await handleFinalizeScore(sessionId);
       } else if (data.question) {
         setCurrentQuestion(data.question);
@@ -185,27 +287,6 @@ export default function Home() {
       console.error('Error advancing assessment', err);
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  // Handler: Finalize Score
-  const handleFinalizeScore = async (activeSessionId: string) => {
-    try {
-      const res = await fetch('/api/assessment/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: activeSessionId }),
-      });
-
-      const data = await res.json();
-      if (data.success && data.result) {
-        setFinalScore(data.result);
-        localStorage.setItem(LOCAL_STORAGE_SCORE_KEY, JSON.stringify(data.result));
-        localStorage.removeItem(LOCAL_STORAGE_SESSION_KEY);
-        setCurrentView('reveal');
-      }
-    } catch (err) {
-      console.error('Error finalizing score', err);
     }
   };
 
@@ -224,7 +305,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f7f6f0] text-[#0f0f11] patter-dot-grid">
-      {/* Navigation */}
       <Navbar
         currentView={currentView}
         onNavigate={(view) => {
@@ -242,9 +322,7 @@ export default function Home() {
         hasActiveSession={!!(sessionId && currentQuestion && currentView !== 'assessment')}
       />
 
-      {/* Main Content Area */}
       <main className="grow">
-        {/* VIEW 1: LANDING */}
         {currentView === 'landing' && (
           <LandingHero
             onStartAssessment={() => handleStartAssessment()}
@@ -254,7 +332,6 @@ export default function Home() {
           />
         )}
 
-        {/* VIEW 2: ACTIVE QUESTION ARENA */}
         {currentView === 'assessment' && currentQuestion && (
           <QuestionArena
             key={currentQuestion.id}
@@ -269,7 +346,6 @@ export default function Home() {
           />
         )}
 
-        {/* VIEW 3: RESULT REVEAL SEQUENCE */}
         {currentView === 'reveal' && finalScore && (
           <ResultReveal
             score={finalScore}
@@ -277,7 +353,6 @@ export default function Home() {
           />
         )}
 
-        {/* VIEW 4: RESULTS DASHBOARD */}
         {currentView === 'results' && finalScore && (
           <ResultsDashboard
             score={finalScore}
@@ -288,7 +363,6 @@ export default function Home() {
           />
         )}
 
-        {/* VIEW 5: LEADERBOARD */}
         {currentView === 'leaderboard' && (
           <LeaderboardView
             onStartAssessment={() => handleStartAssessment()}
@@ -296,7 +370,6 @@ export default function Home() {
           />
         )}
 
-        {/* VIEW 6: HEAD-TO-HEAD CHALLENGE DUEL */}
         {currentView === 'challenge' && (
           <ChallengeView
             challengeCode={viewingChallengeCode}
@@ -305,7 +378,6 @@ export default function Home() {
           />
         )}
 
-        {/* VIEW 7: PRICING & PROGRESSION MATRIX */}
         {currentView === 'pricing' && (
           <div className="bg-[#f7f6f0] patter-dot-grid min-h-[calc(100vh-8rem)]">
             <CreativePricing
@@ -321,19 +393,17 @@ export default function Home() {
         )}
       </main>
 
-      {/* Methodology Modal */}
       <MethodologyModal
         isOpen={isMethodologyOpen}
         onClose={() => setIsMethodologyOpen(false)}
       />
 
-      {/* Footer */}
       <footer className="border-t-[1.5px] border-[#0f0f11] bg-white py-6 sm:py-8 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-[#52525b]">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-[#df9367]" />
             <span className="font-bold text-[#0f0f11]">COPYSCORE</span>
-            <span>— The Adaptive Assessment Standard for Commercial Copy</span>
+            <span>The Adaptive Assessment Standard for Commercial Copy</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-4">

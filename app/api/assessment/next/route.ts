@@ -2,8 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { evaluateUserResponse, selectNextAdaptiveQuestion } from '@/lib/engine/adaptive';
 import { validateAssessmentAnswer } from '@/lib/engine/assessment-integrity';
+import { validateAssessmentSessionAccess } from '@/lib/engine/assessment-session-policy';
 import { getQuestionById } from '@/lib/data/question-bank';
-import { store } from '@/lib/storage/store';
+import { getServerSessionUser } from '@/lib/auth/session';
+import { getAssessmentGuestAccessHash } from '@/lib/auth/assessment-guest';
+import {
+  AssessmentSessionRevisionConflictError,
+  getAssessmentSession,
+  saveAssessmentSession,
+} from '@/lib/domains/assessments/session-repository';
 
 const NextQuestionSchema = z.object({
   sessionId: z.string(),
@@ -22,10 +29,24 @@ export async function POST(req: NextRequest) {
     }
 
     const { sessionId, questionId, userAnswer, timeSpentMs } = parsed.data;
-
-    const session = store.getSession(sessionId);
+    const session = await getAssessmentSession(sessionId);
     if (!session) {
-      return NextResponse.json({ error: 'Assessment session not found or expired' }, { status: 404 });
+      return NextResponse.json({ error: 'Assessment session not found' }, { status: 404 });
+    }
+
+    const sessionUser = await getServerSessionUser();
+    const guestAccessHash = await getAssessmentGuestAccessHash(sessionId);
+    const access = validateAssessmentSessionAccess(session, {
+      now: Date.now(),
+      userUid: sessionUser?.uid,
+      guestAccessHash,
+    });
+
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: access.error, code: access.code },
+        { status: access.status }
+      );
     }
 
     const integrity = validateAssessmentAnswer(session, questionId);
@@ -38,19 +59,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Question not found' }, { status: 404 });
     }
 
-    // Evaluate only the server-selected active question. Clients cannot skip ahead
-    // or replay an answered question to manipulate adaptive difficulty or scoring.
+    const expectedRevision = session.revision ?? 0;
     const evaluated = evaluateUserResponse(question, userAnswer, timeSpentMs);
     session.responses.push(evaluated);
     session.answeredQuestionIds.push(questionId);
 
-    const d = question.domain;
-    const currentEst = session.currentDifficulty[d] || 2.5;
-    if (evaluated.isCorrect) {
-      session.currentDifficulty[d] = Math.min(5.0, currentEst + 0.6);
-    } else {
-      session.currentDifficulty[d] = Math.max(1.0, currentEst - 0.5);
-    }
+    const domain = question.domain;
+    const currentEstimate = session.currentDifficulty[domain] || 2.5;
+    session.currentDifficulty[domain] = evaluated.isCorrect
+      ? Math.min(5.0, currentEstimate + 0.6)
+      : Math.max(1.0, currentEstimate - 0.5);
 
     session.lastActiveTime = Date.now();
 
@@ -64,11 +82,14 @@ export async function POST(req: NextRequest) {
     session.currentQuestion = selection.nextQuestion || undefined;
     session.questionIndex = session.answeredQuestionIds.length;
 
+    // Completing the question sequence is not the same as finalizing the score.
+    // /submit is the only route allowed to set isCompleted/finalScore.
     if (selection.isCompleted) {
-      session.isCompleted = true;
+      session.stage = 'COMPLETED';
+      session.currentQuestion = undefined;
     }
 
-    store.saveSession(session);
+    await saveAssessmentSession(session, expectedRevision);
 
     return NextResponse.json({
       success: true,
@@ -85,6 +106,16 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof AssessmentSessionRevisionConflictError) {
+      return NextResponse.json(
+        {
+          error: 'Assessment state changed before this answer could be saved. Reload the active question and try again.',
+          code: 'ASSESSMENT_SESSION_REVISION_CONFLICT',
+        },
+        { status: 409 }
+      );
+    }
+
     console.error('Error submitting assessment answer:', error);
     return NextResponse.json({ error: 'Failed to process answer' }, { status: 500 });
   }

@@ -11,8 +11,8 @@ import {
   signOutUser as fbSignOutUser,
   sendPasswordReset as fbSendPasswordReset,
   syncServerSession,
+  getCurrentServerProfile,
 } from '../firebase/auth';
-import { ensureUserProfile, getUserProfile, claimGuestAssessment } from '../firebase/firestore';
 import { UserProfile } from '../types/auth';
 import { FinalAssessmentScore } from '../types/assessment';
 
@@ -49,12 +49,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem(GUEST_SCORE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.overallScore) {
-          return parsed;
-        }
+        if (parsed.overallScore && parsed.attemptId) return parsed;
       }
     } catch {
-      // Ignore
+      // Ignore invalid local cache.
     }
     return null;
   });
@@ -64,52 +62,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(null);
       return;
     }
+
     try {
-      const p = await getUserProfile(user.uid);
-      if (p) {
-        setProfile(p);
-      } else {
-        const newP = await ensureUserProfile(user.uid, {
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-          emailVerified: user.emailVerified,
-        });
-        setProfile(newP);
-      }
+      setProfile(await getCurrentServerProfile());
     } catch (err) {
       console.error('Failed to load profile', err);
     }
   }, [user]);
 
-  // Listen to Firebase ID token changes (tokens, signins, token refreshes)
   useEffect(() => {
     let mounted = true;
     const auth = getFirebaseAuth();
-    
+
     const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
       if (!mounted) return;
       setUser(currentUser);
-      
-      if (currentUser) {
-        setLoading(false);
-        try {
-          syncServerSession(currentUser, true).catch(() => {});
-          const p = await ensureUserProfile(currentUser.uid, {
-            email: currentUser.email,
-            displayName: currentUser.displayName,
-            photoURL: currentUser.photoURL,
-            emailVerified: currentUser.emailVerified,
-          });
-          if (mounted) {
-            setProfile(p);
-          }
-        } catch (err) {
-          console.error('Error synchronizing user on auth change', err);
-        }
-      } else {
+
+      if (!currentUser) {
         setProfile(null);
         setLoading(false);
+        return;
+      }
+
+      try {
+        const synced = await syncServerSession(currentUser, true);
+        if (!synced) throw new Error('Failed to establish server session');
+        const currentProfile = await getCurrentServerProfile();
+        if (mounted) setProfile(currentProfile);
+      } catch (err) {
+        console.error('Error synchronizing user on auth change', err);
+        if (mounted) setProfile(null);
+      } finally {
+        if (mounted) setLoading(false);
       }
     });
 
@@ -121,14 +105,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const clearPendingGuestScore = useCallback(() => {
     setPendingGuestScore(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(GUEST_SCORE_KEY);
+    }
   }, []);
 
   const claimPendingGuestScore = useCallback(async (): Promise<boolean> => {
-    if (!user || !pendingGuestScore) return false;
+    if (!user || !pendingGuestScore?.attemptId) return false;
+
     try {
-      const { profile: updatedProfile } = await claimGuestAssessment(user.uid, pendingGuestScore);
-      setProfile(updatedProfile);
+      const response = await fetch('/api/auth/guest/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attemptId: pendingGuestScore.attemptId }),
+      });
+
+      if (!response.ok) return false;
+      const data = await response.json();
+      if (!data?.success || !data.profile) return false;
+
+      setProfile(data.profile as UserProfile);
       setPendingGuestScore(null);
+      localStorage.removeItem(GUEST_SCORE_KEY);
       return true;
     } catch (err) {
       console.error('Failed to claim guest score', err);
@@ -136,28 +134,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, pendingGuestScore]);
 
-  const signInWithEmail = useCallback(async (email: string, pass: string, rememberMe: boolean = true) => {
-    const { profile: p } = await fbSignInWithEmail(email, pass, rememberMe);
-    setProfile(p);
-    return p;
+  const signInWithEmail = useCallback(async (
+    email: string,
+    pass: string,
+    rememberMe: boolean = true
+  ) => {
+    const { profile: nextProfile } = await fbSignInWithEmail(email, pass, rememberMe);
+    setProfile(nextProfile);
+    return nextProfile;
   }, []);
 
-  const signUpWithEmail = useCallback(async (email: string, pass: string, displayName: string, handle?: string) => {
-    const { profile: p } = await fbSignUpWithEmail(email, pass, displayName, handle);
-    setProfile(p);
-    return p;
+  const signUpWithEmail = useCallback(async (
+    email: string,
+    pass: string,
+    displayName: string,
+    handle?: string
+  ) => {
+    const { profile: nextProfile } = await fbSignUpWithEmail(email, pass, displayName, handle);
+    setProfile(nextProfile);
+    return nextProfile;
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    const { profile: p } = await fbSignInWithGoogle();
-    setProfile(p);
-    return p;
+    const { profile: nextProfile } = await fbSignInWithGoogle();
+    setProfile(nextProfile);
+    return nextProfile;
   }, []);
 
   const signInWithGithub = useCallback(async () => {
-    const { profile: p } = await fbSignInWithGithub();
-    setProfile(p);
-    return p;
+    const { profile: nextProfile } = await fbSignInWithGithub();
+    setProfile(nextProfile);
+    return nextProfile;
   }, []);
 
   const signOut = useCallback(async () => {
@@ -170,38 +177,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await fbSendPasswordReset(email);
   }, []);
 
-  const value: AuthContextType = React.useMemo(() => ({
-    user,
-    profile,
-    loading,
-    isAuthenticated: !!user,
-    isAdmin: profile?.role === 'admin',
-    emailVerified: !!user?.emailVerified,
-    pendingGuestScore,
-    clearPendingGuestScore,
-    claimPendingGuestScore,
-    refreshProfile,
-    signInWithEmail,
-    signUpWithEmail,
-    signInWithGoogle,
-    signInWithGithub,
-    signOut,
-    sendPasswordReset,
-  }), [
-    user,
-    profile,
-    loading,
-    pendingGuestScore,
-    clearPendingGuestScore,
-    claimPendingGuestScore,
-    refreshProfile,
-    signInWithEmail,
-    signUpWithEmail,
-    signInWithGoogle,
-    signInWithGithub,
-    signOut,
-    sendPasswordReset,
-  ]);
+  const value: AuthContextType = React.useMemo(
+    () => ({
+      user,
+      profile,
+      loading,
+      isAuthenticated: !!user,
+      isAdmin: profile?.role === 'admin',
+      emailVerified: !!user?.emailVerified,
+      pendingGuestScore,
+      clearPendingGuestScore,
+      claimPendingGuestScore,
+      refreshProfile,
+      signInWithEmail,
+      signUpWithEmail,
+      signInWithGoogle,
+      signInWithGithub,
+      signOut,
+      sendPasswordReset,
+    }),
+    [
+      user,
+      profile,
+      loading,
+      pendingGuestScore,
+      clearPendingGuestScore,
+      claimPendingGuestScore,
+      refreshProfile,
+      signInWithEmail,
+      signUpWithEmail,
+      signInWithGoogle,
+      signInWithGithub,
+      signOut,
+      sendPasswordReset,
+    ]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

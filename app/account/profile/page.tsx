@@ -5,59 +5,58 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
 import { AccountNav } from '@/components/account/AccountNav';
 import { Navbar } from '@/components/assessment/Navbar';
-import { updateUserProfile, isHandleAvailable } from '@/lib/firebase/firestore';
+import {
+  checkServerHandleAvailability,
+  patchCurrentServerProfile,
+} from '@/lib/firebase/auth';
 import { normalizeHandle, isHandleReserved } from '@/lib/auth/schemas';
 import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { UserProfile } from '@/lib/types/auth';
 
-function ProfileForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: string; onRefresh: () => Promise<void> }) {
+function ProfileForm({
+  profile,
+  onRefresh,
+}: {
+  profile: UserProfile;
+  onRefresh: () => Promise<void>;
+}) {
   const [displayName, setDisplayName] = useState(profile.displayName || '');
   const [handle, setHandle] = useState(profile.handle || '');
   const [roleTitle, setRoleTitle] = useState(profile.roleTitle || '');
   const [company, setCompany] = useState(profile.company || '');
   const [bio, setBio] = useState(profile.bio || '');
   const [countryCode] = useState(profile.countryCode || 'US');
-
-  const [handleStatus, setHandleStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  const [handleStatus, setHandleStatus] = useState<
+    'idle' | 'checking' | 'available' | 'taken'
+  >('idle');
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Handle availability check
   useEffect(() => {
-    if (!handle || handle === profile.handle) {
-      return;
-    }
+    if (!handle || handle === profile.handle) return;
+    if (handle.length < 3 || isHandleReserved(handle)) return;
 
-    if (handle.length < 3 || isHandleReserved(handle)) {
-      return;
-    }
-
-    let isMounted = true;
+    let mounted = true;
     const timer = setTimeout(async () => {
-      if (!isMounted) return;
+      if (!mounted) return;
       setHandleStatus('checking');
       try {
-        const available = await isHandleAvailable(handle, uid);
-        if (isMounted) {
-          setHandleStatus(available ? 'available' : 'taken');
-        }
+        const available = await checkServerHandleAvailability(handle);
+        if (mounted) setHandleStatus(available ? 'available' : 'taken');
       } catch {
-        if (isMounted) {
-          setHandleStatus('idle');
-        }
+        if (mounted) setHandleStatus('idle');
       }
     }, 400);
 
     return () => {
-      isMounted = false;
+      mounted = false;
       clearTimeout(timer);
     };
-  }, [handle, profile.handle, uid]);
+  }, [handle, profile.handle]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError(null);
     setSuccess(false);
 
@@ -67,9 +66,8 @@ function ProfileForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: s
     }
 
     setSaving(true);
-
     try {
-      await updateUserProfile(uid, {
+      await patchCurrentServerProfile({
         displayName,
         handle: normalizeHandle(handle),
         roleTitle,
@@ -104,7 +102,7 @@ function ProfileForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: s
       {success && (
         <div className="p-3 bg-[#eaf8ee] border border-[#15803d] text-[#15803d] text-xs font-mono flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>Profile updated and synchronized with Firestore successfully!</span>
+          <span>Profile updated successfully.</span>
         </div>
       )}
 
@@ -117,7 +115,6 @@ function ProfileForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: s
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Display Name */}
           <div className="space-y-1">
             <label className="block text-xs font-mono font-bold text-[#0f0f11] uppercase tracking-wider">
               Display Name
@@ -126,27 +123,22 @@ function ProfileForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: s
               type="text"
               required
               value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              onChange={(event) => setDisplayName(event.target.value)}
               placeholder="Marcus Sterling"
               className="w-full bg-[#fcfbf8] border-[1.5px] border-[#0f0f11] px-3 py-2 text-xs sm:text-sm font-mono focus:outline-none focus:bg-white shadow-[2px_2px_0px_#0f0f11]"
             />
           </div>
 
-          {/* Public Handle */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-mono font-bold text-[#0f0f11] uppercase tracking-wider">
                 Public Handle
               </label>
               {handleStatus === 'available' && (
-                <span className="text-[10px] font-mono text-[#15803d] font-bold">
-                  ✓ Available
-                </span>
+                <span className="text-[10px] font-mono text-[#15803d] font-bold">✓ Available</span>
               )}
               {handleStatus === 'taken' && (
-                <span className="text-[10px] font-mono text-[#b91c1c] font-bold">
-                  ✗ Taken
-                </span>
+                <span className="text-[10px] font-mono text-[#b91c1c] font-bold">✗ Taken</span>
               )}
             </div>
             <div className="relative">
@@ -155,12 +147,12 @@ function ProfileForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: s
                 type="text"
                 required
                 value={handle}
-                onChange={(e) => {
-                  const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
-                  setHandle(val);
-                  if (!val || val === profile.handle) {
+                onChange={(event) => {
+                  const value = event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+                  setHandle(value);
+                  if (!value || value === profile.handle) {
                     setHandleStatus('idle');
-                  } else if (val.length < 3 || isHandleReserved(val)) {
+                  } else if (value.length < 3 || isHandleReserved(value)) {
                     setHandleStatus('taken');
                   }
                 }}
@@ -171,7 +163,6 @@ function ProfileForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: s
           </div>
         </div>
 
-        {/* Professional Title & Company */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="block text-xs font-mono font-bold text-[#0f0f11] uppercase tracking-wider">
@@ -180,7 +171,7 @@ function ProfileForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: s
             <input
               type="text"
               value={roleTitle}
-              onChange={(e) => setRoleTitle(e.target.value)}
+              onChange={(event) => setRoleTitle(event.target.value)}
               placeholder="Principal Conversion Copywriter"
               className="w-full bg-[#fcfbf8] border-[1.5px] border-[#0f0f11] px-3 py-2 text-xs sm:text-sm font-mono focus:outline-none focus:bg-white shadow-[2px_2px_0px_#0f0f11]"
             />
@@ -193,14 +184,13 @@ function ProfileForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: s
             <input
               type="text"
               value={company}
-              onChange={(e) => setCompany(e.target.value)}
+              onChange={(event) => setCompany(event.target.value)}
               placeholder="Acme Growth Lab"
               className="w-full bg-[#fcfbf8] border-[1.5px] border-[#0f0f11] px-3 py-2 text-xs sm:text-sm font-mono focus:outline-none focus:bg-white shadow-[2px_2px_0px_#0f0f11]"
             />
           </div>
         </div>
 
-        {/* Bio */}
         <div className="space-y-1">
           <label className="block text-xs font-mono font-bold text-[#0f0f11] uppercase tracking-wider">
             Short Bio (max 280 chars)
@@ -209,7 +199,7 @@ function ProfileForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: s
             rows={3}
             maxLength={280}
             value={bio}
-            onChange={(e) => setBio(e.target.value)}
+            onChange={(event) => setBio(event.target.value)}
             placeholder="Focusing on B2B SaaS messaging hierarchy, friction removal, and high-intent paid acquisition copy."
             className="w-full bg-[#fcfbf8] border-[1.5px] border-[#0f0f11] px-3 py-2 text-xs sm:text-sm font-mono focus:outline-none focus:bg-white shadow-[2px_2px_0px_#0f0f11]"
           />
@@ -268,12 +258,7 @@ export default function AccountProfilePage() {
 
           <div className="md:col-span-8 lg:col-span-9 space-y-6">
             {profile && (
-              <ProfileForm
-                key={profile.uid}
-                profile={profile}
-                uid={user.uid}
-                onRefresh={refreshProfile}
-              />
+              <ProfileForm key={profile.uid} profile={profile} onRefresh={refreshProfile} />
             )}
           </div>
         </div>
