@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { AssessmentSessionState } from '@/lib/types/assessment';
 import { selectNextAdaptiveQuestion } from '@/lib/engine/adaptive';
-import { store } from '@/lib/storage/store';
 import { getServerSessionUser } from '@/lib/auth/session';
 import {
   ASSESSMENT_SESSION_TTL_MS,
@@ -11,6 +10,7 @@ import {
   setAssessmentGuestCookie,
 } from '@/lib/auth/assessment-guest';
 import { createAssessmentSession } from '@/lib/domains/assessments/session-repository';
+import { getServerChallenge } from '@/lib/domains/rankings/server-rankings';
 import {
   ASSESSMENT_RATE_LIMITS,
   createRateLimitExceededResponse,
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     let challengeOrigin: AssessmentSessionState['challengeOrigin'] = undefined;
     if (data.challengeCode) {
-      const challenge = store.getChallenge(data.challengeCode);
+      const challenge = await getServerChallenge(data.challengeCode);
       if (challenge) {
         challengeOrigin = {
           challengerHandle: challenge.creatorHandle,
