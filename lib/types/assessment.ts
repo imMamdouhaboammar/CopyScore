@@ -103,16 +103,13 @@ export interface QuestionItem {
   difficulty: DifficultyLevel;
   type: QuestionType;
   estimatedSeconds: number;
-  discrimination: number; // 0.5 to 2.0 (Item Response discrimination index)
+  discrimination: number;
   prompt: string;
   context?: QuestionContext;
   options?: ChoiceOption[];
-  // For ranking / sequence: initial options to order
   itemsToOrder?: { id: string; label: string; detail?: string }[];
-  // Correct answers (stored server-side, stripped when sent to client during assessment)
   correctAnswer?: string | string[];
   correctOrder?: string[];
-  // Rubric / explanation for feedback
   rubricCriteria?: string[];
   explanation: string;
   diagnosticInsight: {
@@ -121,21 +118,20 @@ export interface QuestionItem {
   };
 }
 
-// Client-safe version of QuestionItem with sensitive answer keys omitted
 export type ClientQuestion = Omit<QuestionItem, 'correctAnswer' | 'correctOrder'>;
 
 export type AssessmentStage = 'CALIBRATION' | 'CORE' | 'DEEP_DIVE' | 'PRESSURE_TEST' | 'COMPLETED';
 
 export interface UserResponse {
   questionId: string;
-  userAnswer: string | string[]; // selected choice ID, array of IDs, or rewritten text
+  userAnswer: string | string[];
   timeSpentMs: number;
   timestamp: number;
 }
 
 export interface EvaluatedResponse extends UserResponse {
   isCorrect: boolean;
-  scoreRatio: number; // 0.0 to 1.0
+  scoreRatio: number;
   domain: DomainId;
   difficulty: DifficultyLevel;
   discrimination: number;
@@ -146,7 +142,7 @@ export interface EvaluatedResponse extends UserResponse {
 export interface DomainScore {
   domain: DomainId;
   rawScore: number;
-  scaledScore: number; // 0 - 100
+  scaledScore: number;
   questionsAttempted: number;
   accuracy: number;
   highestDifficultyCleared: DifficultyLevel;
@@ -169,9 +165,9 @@ export interface FinalAssessmentScore {
   assessmentVersion: string;
   createdAt: number;
   completedAt: number;
-  overallScore: number; // 0 - 100
-  percentile: number; // e.g. 92% (Top 8%)
-  confidenceLevel: number; // 0 - 100%
+  overallScore: number;
+  percentile: number;
+  confidenceLevel: number;
   rankTitle: string;
   maxDifficultyReached: DifficultyLevel;
   domainScores: Record<DomainId, DomainScore>;
@@ -200,7 +196,7 @@ export interface AssessmentSessionState {
   totalEstimatedQuestions: number;
   answeredQuestionIds: string[];
   responses: EvaluatedResponse[];
-  currentDifficulty: Record<DomainId, number>; // floating skill estimate
+  currentDifficulty: Record<DomainId, number>;
   currentQuestion?: ClientQuestion;
   startTime: number;
   lastActiveTime: number;
@@ -214,6 +210,7 @@ export interface AssessmentSessionState {
 }
 
 export type VerificationStatus = 'verified' | 'pending' | 'practice';
+export type VerificationProofVersion = 'hmac-v1';
 
 export interface LeaderboardEntry {
   rank: number;
@@ -227,8 +224,9 @@ export interface LeaderboardEntry {
   strongestSkill: string;
   domainScores?: Record<DomainId, number>;
   verificationStatus: VerificationStatus;
+  verificationProofVersion?: VerificationProofVersion;
   isVerified: boolean;
-  rankChange?: number; // e.g. +8, -3, 0, or undefined (new)
+  rankChange?: number;
   isNew?: boolean;
   assessmentVersion: string;
   date: string;
