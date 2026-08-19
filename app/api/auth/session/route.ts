@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSessionUser, createSessionResponse, clearSessionResponse } from '@/lib/auth/session';
 import { verifyAdminIdToken } from '@/lib/firebase/admin';
+import { ensureServerUserProfile } from '@/lib/firebase/server-firestore';
 
 export async function GET() {
   try {
     const user = await getServerSessionUser();
     return NextResponse.json({ user });
-  } catch (err: unknown) {
+  } catch {
     return NextResponse.json({ user: null });
   }
 }
@@ -20,13 +21,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'ID token is required' }, { status: 400 });
     }
 
-    // Verify ID token first using Admin SDK
     const decoded = await verifyAdminIdToken(idToken);
-    if (!decoded || !decoded.uid) {
+    if (!decoded?.uid) {
       return NextResponse.json({ success: false, error: 'Invalid ID token' }, { status: 401 });
     }
 
-    // Create session cookie response
+    await ensureServerUserProfile(decoded.uid, {
+      email: decoded.email || null,
+      displayName: decoded.name || decoded.email?.split('@')[0] || null,
+      photoURL: decoded.picture || null,
+      emailVerified: !!decoded.email_verified,
+    });
+
     return await createSessionResponse(idToken, rememberMe !== false);
   } catch (err: unknown) {
     console.error('Session POST error', err);
