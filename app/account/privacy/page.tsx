@@ -5,15 +5,22 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
 import { AccountNav } from '@/components/account/AccountNav';
 import { Navbar } from '@/components/assessment/Navbar';
-import { updateUserProfile } from '@/lib/firebase/firestore';
+import { patchCurrentServerProfile } from '@/lib/firebase/auth';
 import { CheckCircle2, Loader2, Eye, Trophy, Swords, AlertCircle } from 'lucide-react';
 import { UserProfile } from '@/lib/types/auth';
 
-function PrivacyForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: string; onRefresh: () => Promise<void> }) {
+function PrivacyForm({
+  profile,
+  onRefresh,
+}: {
+  profile: UserProfile;
+  onRefresh: () => Promise<void>;
+}) {
   const [isPublic, setIsPublic] = useState(profile.isPublic !== false);
   const [allowChallenges, setAllowChallenges] = useState(profile.allowChallenges !== false);
-  const [showRankOnLeaderboard, setShowRankOnLeaderboard] = useState(profile.showRankOnLeaderboard !== false);
-
+  const [showRankOnLeaderboard, setShowRankOnLeaderboard] = useState(
+    profile.showRankOnLeaderboard !== false
+  );
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +31,7 @@ function PrivacyForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: s
     setSuccess(false);
 
     try {
-      await updateUserProfile(uid, {
+      await patchCurrentServerProfile({
         isPublic,
         publicProfile: isPublic,
         allowChallenges,
@@ -58,7 +65,7 @@ function PrivacyForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: s
       {success && (
         <div className="p-3 bg-[#eaf8ee] border border-[#15803d] text-[#15803d] text-xs font-mono flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>Privacy settings saved successfully!</span>
+          <span>Privacy settings saved successfully.</span>
         </div>
       )}
 
@@ -70,71 +77,29 @@ function PrivacyForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: s
       )}
 
       <div className="space-y-4">
-        {/* Option 1: Public Profile */}
-        <div className="p-4 bg-[#fcfbf8] border-[1.5px] border-[#0f0f11] flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 font-mono font-bold text-xs text-[#0f0f11] uppercase">
-              <Eye className="w-4 h-4 text-[#df9367]" />
-              <span>Public Profile Page (/u/@{profile.handle})</span>
-            </div>
-            <p className="text-xs text-[#52525b]">
-              When enabled, anyone with your handle URL can view your certified archetype, dimension breakdown, and score.
-            </p>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
-            <input
-              type="checkbox"
-              checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#df9367] border border-[#0f0f11]"></div>
-          </label>
-        </div>
+        <PrivacyToggle
+          icon={<Eye className="w-4 h-4 text-[#df9367]" />}
+          title={`Public Profile Page (/u/@${profile.handle})`}
+          description="When enabled, anyone with your handle URL can view your certified archetype, dimension breakdown, and score."
+          checked={isPublic}
+          onChange={setIsPublic}
+        />
 
-        {/* Option 2: Leaderboard Inclusion */}
-        <div className="p-4 bg-[#fcfbf8] border-[1.5px] border-[#0f0f11] flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 font-mono font-bold text-xs text-[#0f0f11] uppercase">
-              <Trophy className="w-4 h-4 text-[#df9367]" />
-              <span>Display on Global Leaderboard</span>
-            </div>
-            <p className="text-xs text-[#52525b]">
-              List your best assessment score on the public Top Copywriters ranking table.
-            </p>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
-            <input
-              type="checkbox"
-              checked={showRankOnLeaderboard}
-              onChange={(e) => setShowRankOnLeaderboard(e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#df9367] border border-[#0f0f11]"></div>
-          </label>
-        </div>
+        <PrivacyToggle
+          icon={<Trophy className="w-4 h-4 text-[#df9367]" />}
+          title="Display on Global Leaderboard"
+          description="List your best assessment score on the public Top Copywriters ranking table."
+          checked={showRankOnLeaderboard}
+          onChange={setShowRankOnLeaderboard}
+        />
 
-        {/* Option 3: Direct Head-to-Head Challenges */}
-        <div className="p-4 bg-[#fcfbf8] border-[1.5px] border-[#0f0f11] flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 font-mono font-bold text-xs text-[#0f0f11] uppercase">
-              <Swords className="w-4 h-4 text-[#df9367]" />
-              <span>Allow Head-to-Head Challenges (/beat/@{profile.handle})</span>
-            </div>
-            <p className="text-xs text-[#52525b]">
-              Allow peers to challenge your score on the exact question sequence you answered.
-            </p>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
-            <input
-              type="checkbox"
-              checked={allowChallenges}
-              onChange={(e) => setAllowChallenges(e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#df9367] border border-[#0f0f11]"></div>
-          </label>
-        </div>
+        <PrivacyToggle
+          icon={<Swords className="w-4 h-4 text-[#df9367]" />}
+          title={`Allow Head-to-Head Challenges (/beat/@${profile.handle})`}
+          description="Allow peers to challenge your score through your public challenge link."
+          checked={allowChallenges}
+          onChange={setAllowChallenges}
+        />
       </div>
 
       <div className="pt-2 flex items-center justify-end">
@@ -148,6 +113,41 @@ function PrivacyForm({ profile, uid, onRefresh }: { profile: UserProfile; uid: s
           <span>Save Privacy Settings</span>
         </button>
       </div>
+    </div>
+  );
+}
+
+function PrivacyToggle({
+  icon,
+  title,
+  description,
+  checked,
+  onChange,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="p-4 bg-[#fcfbf8] border-[1.5px] border-[#0f0f11] flex items-start justify-between gap-4">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2 font-mono font-bold text-xs text-[#0f0f11] uppercase">
+          {icon}
+          <span>{title}</span>
+        </div>
+        <p className="text-xs text-[#52525b]">{description}</p>
+      </div>
+      <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          className="sr-only peer"
+        />
+        <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#df9367] border border-[#0f0f11]" />
+      </label>
     </div>
   );
 }
@@ -190,12 +190,7 @@ export default function AccountPrivacyPage() {
 
           <div className="md:col-span-8 lg:col-span-9 space-y-6">
             {profile && (
-              <PrivacyForm
-                key={profile.uid}
-                profile={profile}
-                uid={user.uid}
-                onRefresh={refreshProfile}
-              />
+              <PrivacyForm key={profile.uid} profile={profile} onRefresh={refreshProfile} />
             )}
           </div>
         </div>
