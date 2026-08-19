@@ -26,6 +26,7 @@ import {
   recordServerChallengeAttempt,
 } from '@/lib/domains/rankings/server-rankings';
 import { publishVerifiedLeaderboardProjection } from '@/lib/domains/rankings/server-projections';
+import { recordAuditEventSafely, resolveAuditRequestId } from '@/lib/ops/server-audit';
 import {
   ASSESSMENT_RATE_LIMITS,
   createRateLimitExceededResponse,
@@ -38,6 +39,7 @@ const SubmitSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const requestId = resolveAuditRequestId(req);
   try {
     const body = await req.json();
     const parsed = SubmitSchema.safeParse(body);
@@ -169,6 +171,17 @@ export async function POST(req: NextRequest) {
     }
 
     await syncRankingEffects(session, finalScore, handle, persistedProfile);
+    await recordAuditEventSafely({
+      eventType: 'assessment.finalized',
+      outcome: 'success',
+      actorUid: session.ownerUid,
+      subjectId: finalScore.attemptId,
+      requestId,
+      metadata: {
+        assessmentVersion: finalScore.assessmentVersion,
+        verified: finalScore.isVerified,
+      },
+    });
 
     return NextResponse.json({
       success: true,
