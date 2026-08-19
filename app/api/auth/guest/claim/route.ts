@@ -10,6 +10,8 @@ import {
   AssessmentSessionClaimError,
   claimAssessmentSession,
 } from '@/lib/domains/assessments/session-repository';
+import { publishVerifiedLeaderboardProjection } from '@/lib/domains/rankings/server-projections';
+import { syncServerChallengeHandle } from '@/lib/domains/rankings/server-rankings';
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,10 +41,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const previousHandle = claimedSession.finalScore.userHandle;
     const { profile, leaderboardEntry } = await claimServerGuestAssessment(
       user.uid,
       claimedSession.finalScore
     );
+
+    await publishVerifiedLeaderboardProjection(profile, claimedSession.finalScore);
+    await syncServerChallengeHandle({
+      previousHandle,
+      nextHandle: profile.handle,
+      score: claimedSession.finalScore,
+      ownerUid: user.uid,
+    });
 
     const response = NextResponse.json({
       success: true,

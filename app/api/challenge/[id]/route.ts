@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { store } from '@/lib/storage/store';
+import { getVerifiedServerChallenge } from '@/lib/domains/rankings/server-challenge-read';
 
 export async function GET(
   req: NextRequest,
@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const challenge = store.getChallenge(id);
+    const challenge = await getVerifiedServerChallenge(id);
 
     if (!challenge) {
       return NextResponse.json({ error: 'Challenge not found' }, { status: 404 });

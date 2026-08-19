@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { store } from '@/lib/storage/store';
+import { getServerLeaderboardData } from '@/lib/domains/rankings/server-rankings';
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search') || '';
     const userHandle = searchParams.get('userHandle') || '';
 
-    const data = store.getLeaderboardData({
+    const data = await getServerLeaderboardData({
       category,
       timeframe,
       search,
@@ -32,4 +32,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to retrieve leaderboard' }, { status: 500 });
   }
 }
-

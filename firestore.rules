@@ -18,49 +18,46 @@ service cloud.firestore {
       );
     }
 
-    // Private account data is readable by its owner, but all profile mutations
-    // pass through authenticated server APIs using the Admin SDK.
+    function hasCurrentVerificationProof() {
+      return resource.data.verificationProofVersion == 'hmac-v1';
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId);
       allow write: if false;
     }
 
-    // Handle uniqueness is enforced transactionally by the Admin SDK.
     match /handles/{handle} {
       allow read: if true;
       allow write: if false;
     }
 
-    // Public projection is readable by anyone and server-owned for writes.
     match /publicProfiles/{profileId} {
       allow read: if true;
       allow write: if false;
     }
 
-    // Ranking data is publicly readable but cannot be forged from a client.
+    // Competition data is public only after the server stamps the current
+    // HMAC-backed proof version. Legacy verified-looking rows stay unreadable.
     match /leaderboard/{entryId} {
-      allow read: if true;
+      allow read: if hasCurrentVerificationProof();
       allow write: if false;
     }
 
-    // Raw assessment results are private to their owner/admin and server-owned.
     match /results/{resultId} {
       allow read: if isAdmin() || (isAuthenticated() && resource.data.ownerUid == request.auth.uid);
       allow write: if false;
     }
 
-    // Challenge discovery may be public; mutations remain server-owned.
     match /challenges/{challengeId} {
-      allow read: if true;
+      allow read: if hasCurrentVerificationProof();
       allow write: if false;
     }
 
-    // Abuse-control counters may reveal request patterns and are Admin SDK only.
     match /rateLimits/{entryId} {
       allow read, write: if false;
     }
 
-    // Curated AI resources and collections are public-read, admin-write.
     match /aiResources/{resourceId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -71,12 +68,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Personal saved/installed preferences may be managed directly by the owner.
     match /userAIStacks/{userId} {
       allow read, write: if isOwner(userId);
     }
 
-    // Community submissions require an authenticated identity and cannot self-approve.
     match /aiSubmissions/{submissionId} {
       allow read: if isAdmin();
       allow create: if isAuthenticated()
@@ -88,7 +83,6 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Future collections are closed until explicitly modeled and reviewed.
     match /{document=**} {
       allow read, write: if false;
     }
