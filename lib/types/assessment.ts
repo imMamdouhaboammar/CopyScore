@@ -1,27 +1,92 @@
 export type DomainId = 'conversion_copywriting' | 'content_creation' | 'performance_copy' | 'cro';
 
+export interface DomainMeta {
+  id: DomainId;
+  name: string;
+  shortName: string;
+  tagline: string;
+  description: string;
+  iconName: string;
+  color: string;
+}
+
+export const DOMAINS: Record<DomainId, DomainMeta> = {
+  conversion_copywriting: {
+    id: 'conversion_copywriting',
+    name: 'Conversion Copywriting',
+    shortName: 'Conversion',
+    tagline: 'Awareness, objections & value proposition hierarchy',
+    description: 'Audience mindset, stage of awareness, proof architecture, friction removal, and compelling offer mechanics.',
+    iconName: 'Target',
+    color: '#df9367',
+  },
+  content_creation: {
+    id: 'content_creation',
+    name: 'Content Judgment & Hooks',
+    shortName: 'Content',
+    tagline: 'Retention, hooks, clarity & narrative flow',
+    description: 'Idea filtering, scroll-stopping hooks, editorial rigor, cognitive pacing, and channel-appropriate framing.',
+    iconName: 'Feather',
+    color: '#3b82f6',
+  },
+  performance_copy: {
+    id: 'performance_copy',
+    name: 'Performance Copy & Ads',
+    shortName: 'Performance',
+    tagline: 'Ad angles, message-market fit & channel intent',
+    description: 'Ad-to-landing page continuity, angle diversification, creative hypothesis testing, and intent matching.',
+    iconName: 'Zap',
+    color: '#10b981',
+  },
+  cro: {
+    id: 'cro',
+    name: 'CRO & Experimentation',
+    shortName: 'CRO',
+    tagline: 'Friction diagnosis, prioritization & hypothesis design',
+    description: 'Quantitative/qualitative signal interpretation, test prioritization frameworks (PIE/ICE), and conversion barriers.',
+    iconName: 'Activity',
+    color: '#8b5cf6',
+  },
+};
+
 export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
+
+export const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
+  1: 'Foundation',
+  2: 'Competent',
+  3: 'Professional',
+  4: 'Advanced',
+  5: 'Expert',
+};
 
 export type QuestionType =
   | 'single_choice'
-  | 'multi_choice'
+  | 'multiple_selection'
   | 'ranking'
-  | 'rewrite'
-  | 'diagnostic'
-  | 'scenario';
+  | 'copy_diagnosis'
+  | 'variant_selection'
+  | 'editing'
+  | 'rewrite_constraint'
+  | 'scenario_decision'
+  | 'cro_diagnosis'
+  | 'sequence'
+  | 'pressure_test';
 
 export interface ChoiceOption {
   id: string;
   text: string;
+  annotation?: string;
+  contextTag?: string;
 }
 
 export interface QuestionContext {
-  brand?: string;
-  industry?: string;
-  audience?: string;
-  objective?: string;
+  scenario?: string;
+  targetAudience?: string;
+  awarenessStage?: string;
+  trafficSource?: string;
   channel?: string;
-  funnelStage?: string;
+  adAngle?: string;
+  adCTR?: string;
   currentLandingPageBounce?: string;
   currentMetrics?: Record<string, string>;
   copySnippet?: string;
@@ -38,13 +103,16 @@ export interface QuestionItem {
   difficulty: DifficultyLevel;
   type: QuestionType;
   estimatedSeconds: number;
-  discrimination: number;
+  discrimination: number; // 0.5 to 2.0 (Item Response discrimination index)
   prompt: string;
   context?: QuestionContext;
   options?: ChoiceOption[];
+  // For ranking / sequence: initial options to order
   itemsToOrder?: { id: string; label: string; detail?: string }[];
+  // Correct answers (stored server-side, stripped when sent to client during assessment)
   correctAnswer?: string | string[];
   correctOrder?: string[];
+  // Rubric / explanation for feedback
   rubricCriteria?: string[];
   explanation: string;
   diagnosticInsight: {
@@ -53,20 +121,21 @@ export interface QuestionItem {
   };
 }
 
+// Client-safe version of QuestionItem with sensitive answer keys omitted
 export type ClientQuestion = Omit<QuestionItem, 'correctAnswer' | 'correctOrder'>;
 
 export type AssessmentStage = 'CALIBRATION' | 'CORE' | 'DEEP_DIVE' | 'PRESSURE_TEST' | 'COMPLETED';
 
 export interface UserResponse {
   questionId: string;
-  userAnswer: string | string[];
+  userAnswer: string | string[]; // selected choice ID, array of IDs, or rewritten text
   timeSpentMs: number;
   timestamp: number;
 }
 
 export interface EvaluatedResponse extends UserResponse {
   isCorrect: boolean;
-  scoreRatio: number;
+  scoreRatio: number; // 0.0 to 1.0
   domain: DomainId;
   difficulty: DifficultyLevel;
   discrimination: number;
@@ -77,7 +146,7 @@ export interface EvaluatedResponse extends UserResponse {
 export interface DomainScore {
   domain: DomainId;
   rawScore: number;
-  scaledScore: number;
+  scaledScore: number; // 0 - 100
   questionsAttempted: number;
   accuracy: number;
   highestDifficultyCleared: DifficultyLevel;
@@ -100,9 +169,9 @@ export interface FinalAssessmentScore {
   assessmentVersion: string;
   createdAt: number;
   completedAt: number;
-  overallScore: number;
-  percentile: number;
-  confidenceLevel: number;
+  overallScore: number; // 0 - 100
+  percentile: number; // e.g. 92% (Top 8%)
+  confidenceLevel: number; // 0 - 100%
   rankTitle: string;
   maxDifficultyReached: DifficultyLevel;
   domainScores: Record<DomainId, DomainScore>;
@@ -131,7 +200,7 @@ export interface AssessmentSessionState {
   totalEstimatedQuestions: number;
   answeredQuestionIds: string[];
   responses: EvaluatedResponse[];
-  currentDifficulty: Record<DomainId, number>;
+  currentDifficulty: Record<DomainId, number>; // floating skill estimate
   currentQuestion?: ClientQuestion;
   startTime: number;
   lastActiveTime: number;
@@ -159,7 +228,7 @@ export interface LeaderboardEntry {
   domainScores?: Record<DomainId, number>;
   verificationStatus: VerificationStatus;
   isVerified: boolean;
-  rankChange?: number;
+  rankChange?: number; // e.g. +8, -3, 0, or undefined (new)
   isNew?: boolean;
   assessmentVersion: string;
   date: string;
@@ -200,18 +269,4 @@ export interface HeadToHeadChallenge {
     handle: string;
     score: number;
   };
-}
-
-export interface ChallengeAttempt {
-  challengeCode: string;
-  challengerHandle: string;
-  challengerScore: number;
-  completedAt: number;
-}
-
-export interface LeaderboardData {
-  entries: LeaderboardEntry[];
-  meta: LeaderboardMeta;
-  userPosition?: LeaderboardEntry;
-  neighborhood?: LeaderboardEntry[];
 }
