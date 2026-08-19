@@ -341,7 +341,7 @@ function safeDocumentId(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120);
 }
 
-function cleanUndefined<T extends Record<string, unknown>>(value: T): T {
+function cleanUndefined<T extends object>(value: T): T {
   return Object.fromEntries(
     Object.entries(value).filter(([, item]) => item !== undefined)
   ) as T;
