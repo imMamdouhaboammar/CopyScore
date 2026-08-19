@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerPublicProfileByHandle } from '@/lib/domains/rankings/server-rankings';
+import { getVerifiedPublicProfileByHandle } from '@/lib/domains/rankings/server-public-profile';
 
 export async function GET(
   req: NextRequest,
@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { handle } = await params;
-    const profile = await getServerPublicProfileByHandle(handle);
+    const profile = await getVerifiedPublicProfileByHandle(handle);
 
     if (!profile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
