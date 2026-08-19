@@ -213,6 +213,28 @@ async function recordServerAssessmentScore(
   existingProfile?: UserProfile
 ): Promise<{ profile: UserProfile; leaderboardEntry: LeaderboardEntry }> {
   const db = getAdminFirestore();
+  const resultRef = db.collection('results').doc(score.attemptId);
+  const existingResult = await resultRef.get();
+
+  if (existingResult.exists) {
+    const existingOwnerUid = existingResult.data()?.ownerUid;
+    if (!existingOwnerUid || existingOwnerUid !== uid) {
+      throw new Error('ASSESSMENT_ATTEMPT_ALREADY_CLAIMED');
+    }
+
+    const existingUserProfile =
+      existingProfile || (await getServerUserProfile(uid));
+    if (!existingUserProfile) {
+      throw new Error('ASSESSMENT_OWNER_PROFILE_MISSING');
+    }
+
+    const existingBestScore = existingUserProfile.bestScore || score;
+    return {
+      profile: existingUserProfile,
+      leaderboardEntry: buildLeaderboardEntry(existingUserProfile, existingBestScore),
+    };
+  }
+
   const profile =
     existingProfile ||
     (await ensureServerUserProfile(uid, {
@@ -229,13 +251,12 @@ async function recordServerAssessmentScore(
     updatedAt: Date.now(),
   };
 
-  const resultRef = db.collection('results').doc(score.attemptId);
   const userRef = db.collection('users').doc(uid);
   const leaderboardEntry = buildLeaderboardEntry(updatedProfile, bestScore);
   const batch = db.batch();
 
   batch.set(userRef, updatedProfile, { merge: true });
-  batch.set(resultRef, {
+  batch.create(resultRef, {
     ...score,
     ownerUid: uid,
     userHandle: updatedProfile.handle,
