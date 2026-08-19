@@ -31,16 +31,13 @@ export function calculateFinalScore(
     cro: computeDomainScore('cro', domainResponses.cro),
   };
 
-  // Weighted overall composite score
   const domainValues = Object.values(domainScores);
   const totalWeightedSum = domainValues.reduce((acc, curr) => acc + curr.scaledScore, 0);
   const rawOverall = Math.round(totalWeightedSum / domainValues.length);
   const overallScore = Math.max(12, Math.min(99, rawOverall));
 
-  // Calculate percentile using Gaussian CDF approximation (mean: 63, std: 14)
   const percentile = calculatePercentile(overallScore);
 
-  // Highest difficulty cleared across all correct responses
   const correctResponses = responses.filter((r) => r.isCorrect);
   let maxDifficulty: DifficultyLevel = 1;
   correctResponses.forEach((r) => {
@@ -49,7 +46,6 @@ export function calculateFinalScore(
     }
   });
 
-  // Calculate archetype
   const domainScoreMap: Record<DomainId, number> = {
     conversion_copywriting: domainScores.conversion_copywriting.scaledScore,
     content_creation: domainScores.content_creation.scaledScore,
@@ -58,10 +54,8 @@ export function calculateFinalScore(
   };
   const archetype = determineArchetype(domainScoreMap);
 
-  // Determine Rank
   const rankTitle = getRankTitle(overallScore);
 
-  // Extract Diagnostic Insights
   const whatYouDidWell: string[] = [];
   const whatCostYouPoints: string[] = [];
 
@@ -80,7 +74,6 @@ export function calculateFinalScore(
     }
   });
 
-  // Fallback insights if few/no errors or perfect score
   if (whatYouDidWell.length === 0) {
     whatYouDidWell.push('Demonstrated solid foundational awareness and audience alignment principles.');
   }
@@ -88,15 +81,14 @@ export function calculateFinalScore(
     whatCostYouPoints.push('Near flawless run; minimal deductions across tested scenario parameters.');
   }
 
-  // Growth Actions based on lowest domain
   const lowestDomain = Object.entries(domainScores).sort((a, b) => a[1].scaledScore - b[1].scaledScore)[0][0] as DomainId;
   const growthActions = getGrowthActions(lowestDomain, archetype.id);
 
   const totalTimeSeconds = Math.max(15, Math.round((completedAt - startTime) / 1000));
   const confidenceLevel = Math.min(98, 70 + responses.length * 2.8);
 
-  const verificationHash = generateScoreSignature(attemptId, overallScore, ASSESSMENT_VERSION);
-
+  // Scoring and cryptographic verification are deliberately separated.
+  // Server finalization may promote this result to verified only after HMAC signing.
   return {
     attemptId,
     assessmentVersion: ASSESSMENT_VERSION,
@@ -113,8 +105,8 @@ export function calculateFinalScore(
     whatCostYouPoints,
     growthActions,
     totalTimeSeconds,
-    verificationHash,
-    isVerified: true,
+    verificationHash: '',
+    isVerified: false,
     userHandle,
   };
 }
@@ -138,7 +130,6 @@ function computeDomainScore(domain: DomainId, responses: EvaluatedResponse[]): D
   let maxDiff: DifficultyLevel = 1;
 
   responses.forEach((r) => {
-    // Difficulty weight: 1 -> 1.0, 2 -> 1.2, 3 -> 1.5, 4 -> 1.9, 5 -> 2.4
     const diffMultiplier = 1.0 + (r.difficulty - 1) * 0.35;
     const itemWeight = (r.discrimination || 1.0) * diffMultiplier;
 
@@ -156,7 +147,6 @@ function computeDomainScore(domain: DomainId, responses: EvaluatedResponse[]): D
   const accuracy = responses.length > 0 ? (correctCount / responses.length) * 100 : 0;
   const ratio = totalWeight > 0 ? earnedWeight / totalWeight : 0.5;
 
-  // Scale ratio to 0-100 curve with realistic benchmark floor/ceiling
   const rawScaled = Math.round(30 + ratio * 68);
   const scaledScore = Math.max(15, Math.min(99, rawScaled));
 
@@ -179,10 +169,7 @@ function computeDomainScore(domain: DomainId, responses: EvaluatedResponse[]): D
 }
 
 function calculatePercentile(score: number): number {
-  // Normal distribution CDF approximation (Mean = 62, StdDev = 14)
   const z = (score - 62) / 14;
-  
-  // Approximation of error function erf
   const t = 1.0 / (1.0 + 0.2316419 * Math.abs(z));
   const d = 0.3989423 * Math.exp((-z * z) / 2);
   const prob =
@@ -190,7 +177,7 @@ function calculatePercentile(score: number): number {
     t *
     (0.3193815 +
       t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-  
+
   let percentile = z > 0 ? (1.0 - prob) * 100 : prob * 100;
   percentile = Math.max(1, Math.min(99, Math.round(percentile)));
   return percentile;
@@ -230,16 +217,4 @@ function getGrowthActions(domain: DomainId, archetypeId: string): string[] {
   };
 
   return actions[domain] || actions.conversion_copywriting;
-}
-
-function generateScoreSignature(attemptId: string, score: number, version: string): string {
-  const secretSalt = 'CS_SECURE_AUTH_2026_SEED';
-  const str = `${attemptId}:${score}:${version}:${secretSalt}`;
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0;
-  }
-  return `CS-VERIFIED-${Math.abs(hash).toString(16).toUpperCase().padStart(8, '0')}`;
 }
