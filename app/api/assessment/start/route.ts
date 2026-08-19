@@ -24,9 +24,6 @@ const StartSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const parsed = StartSchema.safeParse(body);
-    const data = parsed.success ? parsed.data : {};
     const sessionUser = await getServerSessionUser();
     const rateLimit = await enforceDistributedRateLimit({
       scope: 'assessment:start',
@@ -37,6 +34,9 @@ export async function POST(req: NextRequest) {
       return createRateLimitExceededResponse(rateLimit);
     }
 
+    const body = await req.json().catch(() => ({}));
+    const parsed = StartSchema.safeParse(body);
+    const data = parsed.success ? parsed.data : {};
     const sessionId = `att_${randomUUID()}`;
     const now = Date.now();
     const guestCredential = sessionUser
