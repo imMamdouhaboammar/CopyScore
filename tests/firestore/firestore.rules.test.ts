@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 import {
   assertFails,
   assertSucceeds,
@@ -31,7 +31,7 @@ afterAll(async () => {
 describe('Firestore trust boundaries', () => {
   it('allows public reads of intentionally public profile data', async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
-      await setDoc(doc(context.firestore(), 'publicProfiles', 'mamdouh'), {
+      await setDoc(doc(context.firestore(), 'publicProfiles', 'user-a'), {
         uid: 'user-a',
         handle: 'mamdouh',
         displayName: 'Mamdouh',
@@ -39,17 +39,65 @@ describe('Firestore trust boundaries', () => {
     });
 
     const anonymous = testEnv.unauthenticatedContext();
-    await assertSucceeds(getDoc(doc(anonymous.firestore(), 'publicProfiles', 'mamdouh')));
+    await assertSucceeds(getDoc(doc(anonymous.firestore(), 'publicProfiles', 'user-a')));
+  });
+
+  it('denies direct client writes to private and public profile records', async () => {
+    const userA = testEnv.authenticatedContext('user-a');
+
+    await assertFails(
+      setDoc(doc(userA.firestore(), 'users', 'user-a'), {
+        uid: 'user-a',
+        displayName: 'Forged Profile',
+        bestScore: { overallScore: 100 },
+      })
+    );
+
+    await assertFails(
+      setDoc(doc(userA.firestore(), 'publicProfiles', 'user-a'), {
+        uid: 'user-a',
+        displayName: 'Forged Public Profile',
+        overallScore: 100,
+        isVerified: true,
+      })
+    );
+  });
+
+  it('denies direct client handle reservations', async () => {
+    const userA = testEnv.authenticatedContext('user-a');
+    await assertFails(
+      setDoc(doc(userA.firestore(), 'handles', 'mamdouh'), {
+        uid: 'user-a',
+        claimedAt: Date.now(),
+      })
+    );
   });
 
   it('denies direct client writes to assessment results', async () => {
     const authenticated = testEnv.authenticatedContext('user-a');
     await assertFails(
       setDoc(doc(authenticated.firestore(), 'results', 'attempt-1'), {
-        userId: 'user-a',
+        ownerUid: 'user-a',
         overallScore: 100,
       })
     );
+  });
+
+  it('allows only the owner or admin to read a private assessment result', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'results', 'attempt-1'), {
+        ownerUid: 'user-a',
+        overallScore: 87,
+      });
+    });
+
+    const anonymous = testEnv.unauthenticatedContext();
+    const userA = testEnv.authenticatedContext('user-a');
+    const userB = testEnv.authenticatedContext('user-b');
+
+    await assertFails(getDoc(doc(anonymous.firestore(), 'results', 'attempt-1')));
+    await assertSucceeds(getDoc(doc(userA.firestore(), 'results', 'attempt-1')));
+    await assertFails(getDoc(doc(userB.firestore(), 'results', 'attempt-1')));
   });
 
   it('denies direct client writes to challenges', async () => {
@@ -68,45 +116,6 @@ describe('Firestore trust boundaries', () => {
       setDoc(doc(authenticated.firestore(), 'leaderboard', 'entry-1'), {
         userId: 'user-a',
         score: 100,
-      })
-    );
-  });
-
-  it('allows a user to create a handle reservation only for their own uid', async () => {
-    const userA = testEnv.authenticatedContext('user-a');
-
-    await assertSucceeds(
-      setDoc(doc(userA.firestore(), 'handles', 'mamdouh'), {
-        handle: 'mamdouh',
-        uid: 'user-a',
-        createdAt: '2026-08-19T00:00:00.000Z',
-      })
-    );
-
-    await assertFails(
-      setDoc(doc(userA.firestore(), 'handles', 'forged'), {
-        handle: 'forged',
-        uid: 'user-b',
-        createdAt: '2026-08-19T00:00:00.000Z',
-      })
-    );
-  });
-
-  it('prevents another user from taking over an existing handle', async () => {
-    await testEnv.withSecurityRulesDisabled(async (context) => {
-      await setDoc(doc(context.firestore(), 'handles', 'mamdouh'), {
-        handle: 'mamdouh',
-        uid: 'user-a',
-        createdAt: '2026-08-19T00:00:00.000Z',
-      });
-    });
-
-    const userB = testEnv.authenticatedContext('user-b');
-    await assertFails(
-      setDoc(doc(userB.firestore(), 'handles', 'mamdouh'), {
-        handle: 'mamdouh',
-        uid: 'user-b',
-        createdAt: '2026-08-19T00:00:00.000Z',
       })
     );
   });
@@ -148,7 +157,7 @@ describe('Firestore trust boundaries', () => {
     );
   });
 
-  it('allows an authenticated user to submit only with their own uid when uid is present', async () => {
+  it('allows authenticated submissions only for the caller and under-review status', async () => {
     const userA = testEnv.authenticatedContext('user-a');
 
     await assertSucceeds(
@@ -167,8 +176,8 @@ describe('Firestore trust boundaries', () => {
     );
 
     await assertFails(
-      setDoc(doc(userA.firestore(), 'aiSubmissions', 'submission-forged'), {
-        id: 'submission-forged',
+      setDoc(doc(userA.firestore(), 'aiSubmissions', 'submission-forged-owner'), {
+        id: 'submission-forged-owner',
         url: 'https://example.com/resource',
         name: 'Example Resource',
         category: 'copywriting',
@@ -177,6 +186,21 @@ describe('Firestore trust boundaries', () => {
         whyUseful: 'Useful for a defined copywriting job.',
         submittedByUid: 'user-b',
         status: 'under_review',
+        createdAt: '2026-08-19T00:00:00.000Z',
+      })
+    );
+
+    await assertFails(
+      setDoc(doc(userA.firestore(), 'aiSubmissions', 'submission-self-approved'), {
+        id: 'submission-self-approved',
+        url: 'https://example.com/resource',
+        name: 'Example Resource',
+        category: 'copywriting',
+        primaryPlatform: 'other',
+        resourceType: 'skill',
+        whyUseful: 'Useful for a defined copywriting job.',
+        submittedByUid: 'user-a',
+        status: 'accepted',
         createdAt: '2026-08-19T00:00:00.000Z',
       })
     );
