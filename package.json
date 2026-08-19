@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-copyscore-rules \"vitest run tests/firestore/firestore.rules.test.ts\"",
     "clean": "next clean"
   },
   "dependencies": {
@@ -33,6 +34,7 @@
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
     "@tailwindcss/postcss": "4.1.11",
     "@tailwindcss/typography": "^0.5.19",
     "@types/node": "^20",
