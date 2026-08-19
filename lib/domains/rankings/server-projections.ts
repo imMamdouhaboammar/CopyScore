@@ -2,7 +2,7 @@ import 'server-only';
 
 import { getAdminFirestore } from '../../firebase/admin';
 import type { UserProfile } from '../../types/auth';
-import type { FinalAssessmentScore } from '../../types/assessment';
+import type { FinalAssessmentScore, LeaderboardEntry } from '../../types/assessment';
 import {
   buildVerifiedLeaderboardEntry,
   isPublishableVerifiedScore,
@@ -30,6 +30,13 @@ export async function publishVerifiedLeaderboardProjection(
     score
   );
 
-  await getAdminFirestore().collection('leaderboard').doc(profile.uid).set(entry);
+  await getAdminFirestore()
+    .collection('leaderboard')
+    .doc(profile.uid)
+    .set(stripUndefined(entry));
   return true;
+}
+
+function stripUndefined(value: LeaderboardEntry): LeaderboardEntry {
+  return JSON.parse(JSON.stringify(value)) as LeaderboardEntry;
 }
