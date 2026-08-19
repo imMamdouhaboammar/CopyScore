@@ -17,9 +17,9 @@ export function SubmitResourceModal({ isOpen, onClose }: SubmitResourceModalProp
   const [url, setUrl] = useState('');
   const [name, setName] = useState('');
   const [whyUseful, setWhyUseful] = useState('');
-  const [resourceType, setResourceType] = useState<ResourceType>('claude_skill');
-  const [testedPlatforms, setTestedPlatforms] = useState<PlatformId[]>(['claude_code']);
-  const [categories, setCategories] = useState<string[]>(['customer-research']);
+  const [resourceType, setResourceType] = useState<ResourceType>('skill');
+  const [primaryPlatform, setPrimaryPlatform] = useState<PlatformId>('claude_code');
+  const [category, setCategory] = useState('customer-research');
   const [submitterEmail, setSubmitterEmail] = useState(user?.email || '');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -27,8 +27,8 @@ export function SubmitResourceModal({ isOpen, onClose }: SubmitResourceModalProp
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!url.trim() || !name.trim() || !whyUseful.trim()) {
       setError('Please fill in all required fields (Name, URL, Why Useful).');
       return;
@@ -43,58 +43,38 @@ export function SubmitResourceModal({ isOpen, onClose }: SubmitResourceModalProp
         name: name.trim(),
         whyUseful: whyUseful.trim(),
         resourceType,
-        testedPlatforms,
-        categories,
-        submitterEmail: submitterEmail.trim() || undefined,
+        primaryPlatform,
+        category,
+        submittedByEmail: submitterEmail.trim() || undefined,
+        submittedByUid: user?.uid,
       });
       setSuccess(true);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to submit. Please try again.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to submit. Please try again.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const togglePlatform = (platId: PlatformId) => {
-    if (testedPlatforms.includes(platId)) {
-      if (testedPlatforms.length > 1) {
-        setTestedPlatforms(testedPlatforms.filter((p) => p !== platId));
-      }
-    } else {
-      setTestedPlatforms([...testedPlatforms, platId]);
-    }
-  };
-
-  const toggleCategory = (catSlug: string) => {
-    if (categories.includes(catSlug)) {
-      if (categories.length > 1) {
-        setCategories(categories.filter((c) => c !== catSlug));
-      }
-    } else {
-      setCategories([...categories, catSlug]);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-[#0f0f11]/80 backdrop-blur-xs flex items-center justify-center p-4">
       <div className="patter-card bg-white max-w-xl w-full shadow-[8px_8px_0px_#0f0f11] overflow-hidden max-h-[90vh] flex flex-col">
-        {/* Header */}
         <div className="border-b-[1.5px] border-[#0f0f11] bg-[#fcfbf8] p-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#df9367]" />
             <h3 className="font-mono font-bold text-sm uppercase text-[#0f0f11]">
-              Submit Marketing AI Skill or Prompt Pack
+              Submit Marketing AI Resource
             </h3>
           </div>
           <button
             onClick={onClose}
             className="p-1 hover:bg-[#f7f6f0] border border-transparent hover:border-[#0f0f11] cursor-pointer"
+            aria-label="Close submission modal"
           >
             <X className="w-4 h-4 text-[#0f0f11]" />
           </button>
         </div>
 
-        {/* Content */}
         <div className="p-6 overflow-y-auto">
           {success ? (
             <div className="text-center py-8 space-y-4">
@@ -102,12 +82,10 @@ export function SubmitResourceModal({ isOpen, onClose }: SubmitResourceModalProp
                 <CheckCircle2 className="w-6 h-6" />
               </div>
               <h4 className="font-mono font-bold text-base text-[#0f0f11]">
-                Submission Received for Editorial Review!
+                Submission Received for Review
               </h4>
               <p className="text-xs text-[#52525b] max-w-md mx-auto leading-relaxed">
-                Thank you for contributing. Our editorial team verifies all installation scripts,
-                runs security audits, and writes deterministic test prompts before publishing to the
-                directory.
+                The resource will remain unpublished until its source, installation guidance, and declared access are reviewed.
               </p>
               <button
                 onClick={onClose}
@@ -126,101 +104,80 @@ export function SubmitResourceModal({ isOpen, onClose }: SubmitResourceModalProp
               )}
 
               <div className="space-y-1">
-                <label className="text-xs font-mono font-bold text-[#0f0f11] flex items-center justify-between">
-                  <span>Resource Name *</span>
-                  <span className="text-[10px] text-[#8c8b85]">e.g. CRO Heuristic Auditor</span>
-                </label>
+                <label className="text-xs font-mono font-bold text-[#0f0f11]">Resource Name *</label>
                 <input
                   type="text"
                   required
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(event) => setName(event.target.value)}
                   placeholder="Official or package name"
                   className="w-full bg-white border border-[#0f0f11] p-2.5 text-xs font-mono text-[#0f0f11] focus:outline-none focus:ring-1 focus:ring-[#df9367]"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-mono font-bold text-[#0f0f11] flex items-center justify-between">
-                  <span>Repository or Documentation URL *</span>
-                  <span className="text-[10px] text-[#8c8b85]">GitHub, Gist, or docs</span>
+                <label className="text-xs font-mono font-bold text-[#0f0f11]">
+                  Repository or Documentation URL *
                 </label>
                 <input
                   type="url"
                   required
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  onChange={(event) => setUrl(event.target.value)}
                   placeholder="https://github.com/..."
                   className="w-full bg-white border border-[#0f0f11] p-2.5 text-xs font-mono text-[#0f0f11] focus:outline-none focus:ring-1 focus:ring-[#df9367]"
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-mono font-bold text-[#0f0f11]">Resource Type</label>
+                  <select
+                    value={resourceType}
+                    onChange={(event) => setResourceType(event.target.value as ResourceType)}
+                    className="w-full bg-white border border-[#0f0f11] p-2.5 text-xs font-mono text-[#0f0f11] focus:outline-none focus:ring-1 focus:ring-[#df9367]"
+                  >
+                    <option value="skill">Skill</option>
+                    <option value="plugin">Plugin</option>
+                    <option value="extension">Extension</option>
+                    <option value="mcp">MCP Server</option>
+                    <option value="agent">Agent</option>
+                    <option value="marketplace">Marketplace</option>
+                    <option value="prompt_pack">Prompt Pack</option>
+                    <option value="workflow">Workflow</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-mono font-bold text-[#0f0f11]">Primary Platform</label>
+                  <select
+                    value={primaryPlatform}
+                    onChange={(event) => setPrimaryPlatform(event.target.value as PlatformId)}
+                    className="w-full bg-white border border-[#0f0f11] p-2.5 text-xs font-mono text-[#0f0f11] focus:outline-none focus:ring-1 focus:ring-[#df9367]"
+                  >
+                    {AI_PLATFORMS.map((platform) => (
+                      <option key={platform.id} value={platform.id}>
+                        {platform.name}
+                      </option>
+                    ))}
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="space-y-1">
-                <label className="text-xs font-mono font-bold text-[#0f0f11]">
-                  Technical Resource Type
-                </label>
+                <label className="text-xs font-mono font-bold text-[#0f0f11]">Primary Marketing Category</label>
                 <select
-                  value={resourceType}
-                  onChange={(e) => setResourceType(e.target.value as ResourceType)}
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
                   className="w-full bg-white border border-[#0f0f11] p-2.5 text-xs font-mono text-[#0f0f11] focus:outline-none focus:ring-1 focus:ring-[#df9367]"
                 >
-                  <option value="claude_skill">Claude Skill / Agent Skill</option>
-                  <option value="mcp_server">MCP Server (Model Context Protocol)</option>
-                  <option value="prompt_pack">Prompt Pack / System Instructions</option>
-                  <option value="cli_tool">CLI Tool / Terminal Utility</option>
-                  <option value="browser_extension">Browser Extension</option>
-                  <option value="custom_gpt">Custom GPT / Assistant</option>
+                  {AI_CATEGORIES.map((item) => (
+                    <option key={item.id} value={item.slug}>
+                      {item.name}
+                    </option>
+                  ))}
                 </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-mono font-bold text-[#0f0f11]">
-                  Tested AI Platform(s)
-                </label>
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {AI_PLATFORMS.map((p) => {
-                    const isChecked = testedPlatforms.includes(p.id);
-                    return (
-                      <button
-                        type="button"
-                        key={p.id}
-                        onClick={() => togglePlatform(p.id)}
-                        className={`px-2.5 py-1 text-[11px] font-mono border cursor-pointer ${
-                          isChecked
-                            ? 'bg-[#0f0f11] text-white border-[#0f0f11]'
-                            : 'bg-[#f7f6f0] text-[#52525b] border-[#e5e4dc]'
-                        }`}
-                      >
-                        {p.name} {isChecked ? '✓' : '+'}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-mono font-bold text-[#0f0f11]">
-                  Marketing Category
-                </label>
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {AI_CATEGORIES.map((c) => {
-                    const isChecked = categories.includes(c.slug);
-                    return (
-                      <button
-                        type="button"
-                        key={c.id}
-                        onClick={() => toggleCategory(c.slug)}
-                        className={`px-2.5 py-1 text-[11px] font-mono border cursor-pointer ${
-                          isChecked
-                            ? 'bg-[#df9367] text-[#0f0f11] border-[#0f0f11] font-bold'
-                            : 'bg-[#f7f6f0] text-[#52525b] border-[#e5e4dc]'
-                        }`}
-                      >
-                        {c.name}
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
 
               <div className="space-y-1">
@@ -231,21 +188,18 @@ export function SubmitResourceModal({ isOpen, onClose }: SubmitResourceModalProp
                   required
                   rows={3}
                   value={whyUseful}
-                  onChange={(e) => setWhyUseful(e.target.value)}
+                  onChange={(event) => setWhyUseful(event.target.value)}
                   placeholder="Describe the specific marketing bottleneck it solves..."
                   className="w-full bg-white border border-[#0f0f11] p-2.5 text-xs font-mono text-[#0f0f11] focus:outline-none focus:ring-1 focus:ring-[#df9367]"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-mono font-bold text-[#0f0f11] flex items-center justify-between">
-                  <span>Your Email (Optional)</span>
-                  <span className="text-[10px] text-[#8c8b85]">To notify upon approval</span>
-                </label>
+                <label className="text-xs font-mono font-bold text-[#0f0f11]">Your Email (Optional)</label>
                 <input
                   type="email"
                   value={submitterEmail}
-                  onChange={(e) => setSubmitterEmail(e.target.value)}
+                  onChange={(event) => setSubmitterEmail(event.target.value)}
                   placeholder="you@company.com"
                   className="w-full bg-white border border-[#0f0f11] p-2.5 text-xs font-mono text-[#0f0f11] focus:outline-none focus:ring-1 focus:ring-[#df9367]"
                 />
@@ -262,7 +216,7 @@ export function SubmitResourceModal({ isOpen, onClose }: SubmitResourceModalProp
                 <button
                   type="submit"
                   disabled={loading}
-                  className="patter-btn patter-btn-peach px-4 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer"
+                  className="patter-btn patter-btn-peach px-4 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
                 >
                   {loading ? (
                     <span>Submitting...</span>
