@@ -120,6 +120,36 @@ describe('Firestore trust boundaries', () => {
     );
   });
 
+  it('allows public reads only for HMAC-v1 leaderboard and challenge records', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'leaderboard', 'current'), {
+        handle: 'current',
+        score: 90,
+        verificationProofVersion: 'hmac-v1',
+      });
+      await setDoc(doc(context.firestore(), 'leaderboard', 'legacy'), {
+        handle: 'legacy',
+        score: 99,
+        isVerified: true,
+      });
+      await setDoc(doc(context.firestore(), 'challenges', 'current'), {
+        challengeCode: 'current',
+        creatorScore: 90,
+        verificationProofVersion: 'hmac-v1',
+      });
+      await setDoc(doc(context.firestore(), 'challenges', 'legacy'), {
+        challengeCode: 'legacy',
+        creatorScore: 99,
+      });
+    });
+
+    const anonymous = testEnv.unauthenticatedContext();
+    await assertSucceeds(getDoc(doc(anonymous.firestore(), 'leaderboard', 'current')));
+    await assertFails(getDoc(doc(anonymous.firestore(), 'leaderboard', 'legacy')));
+    await assertSucceeds(getDoc(doc(anonymous.firestore(), 'challenges', 'current')));
+    await assertFails(getDoc(doc(anonymous.firestore(), 'challenges', 'legacy')));
+  });
+
   it('denies clients from reading or mutating distributed rate-limit state', async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await setDoc(doc(context.firestore(), 'rateLimits', 'bucket-1'), {
