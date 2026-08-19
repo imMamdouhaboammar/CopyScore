@@ -12,47 +12,50 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && (
+        request.auth.token.admin == true ||
         request.auth.token.email == 'mamdouhFces1997@gmail.com' ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
 
-    // User profile documents
+    // Private account data is readable by its owner, but all profile mutations
+    // pass through authenticated server APIs using the Admin SDK.
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId);
+      allow write: if false;
     }
 
-    // Handle reservations
+    // Handle uniqueness is enforced transactionally by the Admin SDK.
     match /handles/{handle} {
       allow read: if true;
-      allow write: if isAuthenticated();
+      allow write: if false;
     }
 
-    // Public profiles
+    // Public projection is readable by anyone and server-owned for writes.
     match /publicProfiles/{profileId} {
       allow read: if true;
-      allow write: if isAuthenticated() && (request.resource.data.uid == request.auth.uid || resource.data.uid == request.auth.uid);
+      allow write: if false;
     }
 
-    // Leaderboard entries
+    // Ranking data is publicly readable but cannot be forged from a client.
     match /leaderboard/{entryId} {
       allow read: if true;
-      allow write: if isAuthenticated();
+      allow write: if false;
     }
 
-    // Assessment results and historical logs
+    // Raw assessment results are private to their owner/admin and server-owned.
     match /results/{resultId} {
-      allow read: if true;
-      allow write: if true;
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.ownerUid == request.auth.uid);
+      allow write: if false;
     }
 
-    // Head-to-head challenges
+    // Challenge discovery may be public; mutations remain server-owned.
     match /challenges/{challengeId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if false;
     }
 
-    // Curated AI Resources & Collections
+    // Curated AI resources and collections are public-read, admin-write.
     match /aiResources/{resourceId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -63,16 +66,26 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // User AI Stacks (personal saved & installed preferences)
+    // Personal saved/installed preferences may be managed directly by the owner.
     match /userAIStacks/{userId} {
       allow read, write: if isOwner(userId);
     }
 
-    // Community Submissions
+    // Community submissions require an authenticated identity and cannot self-approve.
     match /aiSubmissions/{submissionId} {
       allow read: if isAdmin();
-      allow create: if isAuthenticated() || true;
+      allow create: if isAuthenticated()
+        && request.resource.data.status == 'under_review'
+        && (
+          !request.resource.data.keys().hasAny(['submittedByUid']) ||
+          request.resource.data.submittedByUid == request.auth.uid
+        );
       allow update, delete: if isAdmin();
+    }
+
+    // Future collections are closed until explicitly modeled and reviewed.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
