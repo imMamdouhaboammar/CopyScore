@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-copyscore-rules \"vitest run tests/firestore/firestore.rules.test.ts\"",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-copyscore-rules \"vitest run --config vitest.rules.config.ts\"",
     "clean": "next clean"
   },
   "dependencies": {
