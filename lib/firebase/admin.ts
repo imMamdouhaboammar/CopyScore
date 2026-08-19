@@ -1,7 +1,15 @@
 import 'server-only';
-import { getApps, initializeApp, App } from 'firebase-admin/app';
+import {
+  applicationDefault,
+  cert,
+  getApps,
+  initializeApp,
+  App,
+  type AppOptions,
+} from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import { resolveFirebaseAdminCredentialConfig } from '../config/firebase-admin-env';
 import { firebaseClientConfig } from './config';
 
 let adminApp: App;
@@ -12,9 +20,23 @@ export function getAdminApp(): App {
     if (apps.length > 0 && apps[0]) {
       adminApp = apps[0];
     } else {
-      adminApp = initializeApp({
-        projectId: firebaseClientConfig.projectId,
-      });
+      const credentialConfig = resolveFirebaseAdminCredentialConfig(
+        process.env,
+        firebaseClientConfig.projectId
+      );
+      const options: AppOptions = {
+        projectId: credentialConfig.projectId,
+        credential:
+          credentialConfig.mode === 'service-account'
+            ? cert({
+                projectId: credentialConfig.projectId,
+                clientEmail: credentialConfig.clientEmail,
+                privateKey: credentialConfig.privateKey,
+              })
+            : applicationDefault(),
+      };
+
+      adminApp = initializeApp(options);
     }
   }
   return adminApp;
@@ -39,12 +61,18 @@ export async function verifyAdminIdToken(idToken: string) {
   return await auth.verifyIdToken(idToken, true);
 }
 
-export async function createAdminSessionCookie(idToken: string, expiresInMs: number = 60 * 60 * 24 * 5 * 1000) {
+export async function createAdminSessionCookie(
+  idToken: string,
+  expiresInMs: number = 60 * 60 * 24 * 5 * 1000
+) {
   const auth = getAdminAuth();
   return await auth.createSessionCookie(idToken, { expiresIn: expiresInMs });
 }
 
-export async function verifyAdminSessionCookie(sessionCookie: string, checkRevoked: boolean = true) {
+export async function verifyAdminSessionCookie(
+  sessionCookie: string,
+  checkRevoked: boolean = true
+) {
   const auth = getAdminAuth();
   return await auth.verifySessionCookie(sessionCookie, checkRevoked);
 }
