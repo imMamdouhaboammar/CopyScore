@@ -15,7 +15,7 @@ jobs:
   quality:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -28,6 +28,12 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package.json
 
+      - name: Setup Java for Firebase Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: Install dependencies
         run: npm install --no-package-lock
 
@@ -39,6 +45,9 @@ jobs:
 
       - name: Unit tests
         run: npm run test:run
+
+      - name: Firestore rules tests
+        run: npm run test:rules
 
       - name: Production build
         run: npm run build
