@@ -75,7 +75,7 @@ function makeScore(overrides: Partial<FinalAssessmentScore> = {}): FinalAssessme
     totalTimeSeconds: 600,
     verificationHash: '',
     isVerified: false,
-    userHandle: 'writer',
+    userHandle: 'guest_initial',
     ...overrides,
   };
 }
@@ -107,6 +107,13 @@ describe('score verification', () => {
         STRONG_SECRET
       )
     ).toBe(false);
+  });
+
+  it('keeps the score proof valid when a guest result is rebound to a server-owned handle', () => {
+    const signed = signFinalAssessmentScore(makeScore(), STRONG_SECRET);
+    const claimed = { ...signed, userHandle: 'canonical_account_handle' };
+
+    expect(verifyFinalAssessmentScore(claimed, STRONG_SECRET)).toBe(true);
   });
 
   it('rejects signatures made with a different secret', () => {
