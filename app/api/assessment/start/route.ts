@@ -10,7 +10,7 @@ import {
   setAssessmentGuestCookie,
 } from '@/lib/auth/assessment-guest';
 import { createAssessmentSession } from '@/lib/domains/assessments/session-repository';
-import { getServerChallenge } from '@/lib/domains/rankings/server-rankings';
+import { getVerifiedServerChallenge } from '@/lib/domains/rankings/server-challenge-read';
 import {
   ASSESSMENT_RATE_LIMITS,
   createRateLimitExceededResponse,
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     let challengeOrigin: AssessmentSessionState['challengeOrigin'] = undefined;
     if (data.challengeCode) {
-      const challenge = await getServerChallenge(data.challengeCode);
+      const challenge = await getVerifiedServerChallenge(data.challengeCode);
       if (challenge) {
         challengeOrigin = {
           challengerHandle: challenge.creatorHandle,
