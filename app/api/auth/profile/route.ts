@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSessionUser, requireUser } from '@/lib/auth/session';
 import { getServerUserProfile, updateServerUserProfile } from '@/lib/firebase/server-firestore';
-import { profileUpdateSchema } from '@/lib/auth/schemas';
+import { profilePatchSchema } from '@/lib/auth/schemas';
 
 export async function GET() {
   try {
@@ -21,7 +21,7 @@ export async function PUT(req: NextRequest) {
   try {
     const user = await requireUser();
     const body = await req.json();
-    const parsed = profileUpdateSchema.safeParse(body);
+    const parsed = profilePatchSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
