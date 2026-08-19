@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import type { UserProfile } from '@/lib/types/auth';
+import type { AssessmentSessionState, FinalAssessmentScore } from '@/lib/types/assessment';
 import { calculateFinalScore } from '@/lib/engine/scoring';
 import {
   resolveScoreSigningSecret,
   ScoreVerificationConfigurationError,
   signFinalAssessmentScore,
 } from '@/lib/engine/score-verification';
-import { store } from '@/lib/storage/store';
 import { getServerSessionUser } from '@/lib/auth/session';
 import { getAssessmentGuestAccessHash } from '@/lib/auth/assessment-guest';
 import { validateAssessmentSessionAccess } from '@/lib/engine/assessment-session-policy';
@@ -20,6 +21,11 @@ import {
   getAssessmentSession,
   saveAssessmentSession,
 } from '@/lib/domains/assessments/session-repository';
+import {
+  publishServerChallenge,
+  recordServerChallengeAttempt,
+} from '@/lib/domains/rankings/server-rankings';
+import { publishVerifiedLeaderboardProjection } from '@/lib/domains/rankings/server-projections';
 import {
   ASSESSMENT_RATE_LIMITS,
   createRateLimitExceededResponse,
@@ -80,6 +86,11 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const existingProfile = session.ownerUid
+        ? await getServerUserProfile(session.ownerUid)
+        : null;
+      await syncRankingEffects(session, session.finalScore, session.userHandle, existingProfile);
+
       return NextResponse.json({
         success: true,
         result: session.finalScore,
@@ -125,8 +136,10 @@ export async function POST(req: NextRequest) {
       session.claimedByUid = sessionUser.uid;
     }
 
+    let persistedProfile: UserProfile | null = serverProfile;
     if (sessionUser?.uid) {
-      await saveServerAssessmentResult(finalScore, sessionUser.uid);
+      const persisted = await saveServerAssessmentResult(finalScore, sessionUser.uid);
+      persistedProfile = persisted.profile;
     }
 
     session.isCompleted = true;
@@ -140,6 +153,10 @@ export async function POST(req: NextRequest) {
       if (error instanceof AssessmentSessionRevisionConflictError) {
         const latest = await getAssessmentSession(sessionId);
         if (latest?.isCompleted && latest.finalScore && latest.userHandle) {
+          const latestProfile = latest.ownerUid
+            ? await getServerUserProfile(latest.ownerUid)
+            : null;
+          await syncRankingEffects(latest, latest.finalScore, latest.userHandle, latestProfile);
           return NextResponse.json({
             success: true,
             result: latest.finalScore,
@@ -151,30 +168,7 @@ export async function POST(req: NextRequest) {
       throw error;
     }
 
-    store.saveFinalScore(finalScore);
-
-    if (session.challengeOrigin) {
-      store.recordChallengeAttempt(
-        session.challengeOrigin.challengeCode,
-        handle,
-        finalScore.overallScore
-      );
-    }
-
-    store.createChallenge({
-      challengeCode: handle.toLowerCase(),
-      creatorHandle: handle,
-      creatorScore: finalScore.overallScore,
-      creatorArchetype: finalScore.archetype.name,
-      creatorDomainScores: {
-        conversion_copywriting: finalScore.domainScores.conversion_copywriting.scaledScore,
-        content_creation: finalScore.domainScores.content_creation.scaledScore,
-        performance_copy: finalScore.domainScores.performance_copy.scaledScore,
-        cro: finalScore.domainScores.cro.scaledScore,
-      },
-      createdAt: Date.now(),
-      participantCount: 0,
-    });
+    await syncRankingEffects(session, finalScore, handle, persistedProfile);
 
     return NextResponse.json({
       success: true,
@@ -206,5 +200,32 @@ export async function POST(req: NextRequest) {
 
     console.error('Error finalizing assessment score:', error);
     return NextResponse.json({ error: 'Failed to finalize score' }, { status: 500 });
+  }
+}
+
+async function syncRankingEffects(
+  session: AssessmentSessionState,
+  score: FinalAssessmentScore,
+  handle: string,
+  profile: UserProfile | null
+): Promise<void> {
+  if (profile) {
+    await publishVerifiedLeaderboardProjection(profile, score);
+  }
+
+  await publishServerChallenge({
+    score,
+    handle,
+    ownerUid: session.ownerUid,
+  });
+
+  if (session.challengeOrigin) {
+    await recordServerChallengeAttempt({
+      challengeCode: session.challengeOrigin.challengeCode,
+      attemptId: score.attemptId,
+      opponentHandle: handle,
+      opponentScore: score.overallScore,
+      completedAt: score.completedAt,
+    });
   }
 }
