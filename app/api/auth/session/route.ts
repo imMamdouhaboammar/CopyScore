@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSessionUser, createSessionResponse, clearSessionResponse } from '@/lib/auth/session';
 import { verifyAdminIdToken } from '@/lib/firebase/admin';
 import { ensureServerUserProfile } from '@/lib/firebase/server-firestore';
+import { recordAuditEventSafely, resolveAuditRequestId } from '@/lib/ops/server-audit';
 
 export async function GET() {
   try {
@@ -13,6 +14,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const requestId = resolveAuditRequestId(req);
   try {
     const body = await req.json();
     const { idToken, rememberMe } = body;
@@ -33,7 +35,19 @@ export async function POST(req: NextRequest) {
       emailVerified: !!decoded.email_verified,
     });
 
-    return await createSessionResponse(idToken, rememberMe !== false);
+    const response = await createSessionResponse(idToken, rememberMe !== false);
+    await recordAuditEventSafely({
+      eventType: 'auth.session.created',
+      outcome: 'success',
+      actorUid: decoded.uid,
+      subjectId: decoded.uid,
+      requestId,
+      metadata: {
+        rememberMe: rememberMe !== false,
+        authMode: 'firebase-session-cookie',
+      },
+    });
+    return response;
   } catch (err: unknown) {
     console.error('Session POST error', err);
     return NextResponse.json(

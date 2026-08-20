@@ -3,6 +3,7 @@ import { getServerSessionUser, requireUser } from '@/lib/auth/session';
 import { getServerUserProfile, updateServerUserProfile } from '@/lib/firebase/server-firestore';
 import { profilePatchSchema } from '@/lib/auth/schemas';
 import { syncServerChallengeHandle } from '@/lib/domains/rankings/server-rankings';
+import { recordAuditEventSafely, resolveAuditRequestId } from '@/lib/ops/server-audit';
 
 export async function GET() {
   try {
@@ -19,6 +20,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
+  const requestId = resolveAuditRequestId(req);
   try {
     const user = await requireUser();
     const body = await req.json();
@@ -42,6 +44,15 @@ export async function PUT(req: NextRequest) {
         ownerUid: user.uid,
       });
     }
+
+    await recordAuditEventSafely({
+      eventType: 'auth.profile.updated',
+      outcome: 'success',
+      actorUid: user.uid,
+      subjectId: user.uid,
+      requestId,
+      metadata: { profileChanged: true },
+    });
 
     return NextResponse.json({ success: true, profile: updated });
   } catch (err: unknown) {
