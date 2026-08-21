@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FinalAssessmentScore } from '@/lib/types/assessment';
-import { Sparkles, Trophy, Target, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Target, ArrowRight } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface ResultRevealProps {
@@ -15,15 +15,12 @@ export function ResultReveal({ score, onFinishReveal }: ResultRevealProps) {
   const [displayScore, setDisplayScore] = useState<number>(0);
 
   useEffect(() => {
-    // Step 1: Processing decisions (0.8s)
     const t1 = setTimeout(() => {
-      setStep(2); // Difficulty reached (1.2s)
+      setStep(2);
     }, 900);
 
-    // Step 2 -> Step 3: Score countup (1.5s)
     const t2 = setTimeout(() => {
       setStep(3);
-      // Animate score counter
       let current = 0;
       const target = score.overallScore;
       const interval = setInterval(() => {
@@ -31,7 +28,6 @@ export function ResultReveal({ score, onFinishReveal }: ResultRevealProps) {
         if (current >= target) {
           setDisplayScore(target);
           clearInterval(interval);
-          // Trigger subtle tactile confetti burst
           confetti({
             particleCount: 40,
             spread: 60,
@@ -44,7 +40,6 @@ export function ResultReveal({ score, onFinishReveal }: ResultRevealProps) {
       }, 25);
     }, 2100);
 
-    // Step 3 -> Step 4: Archetype reveal
     const t3 = setTimeout(() => {
       setStep(4);
     }, 3800);
@@ -59,7 +54,6 @@ export function ResultReveal({ score, onFinishReveal }: ResultRevealProps) {
   return (
     <div className="min-h-[70vh] flex items-center justify-center p-4">
       <div className="w-full max-w-lg patter-card bg-white p-6 sm:p-8 text-center shadow-[6px_6px_0px_#0f0f11] relative overflow-hidden">
-        {/* Terminal top header */}
         <div className="absolute top-0 left-0 right-0 h-7 bg-[#0f0f11] text-white flex items-center justify-between px-3 text-[11px] font-mono">
           <span>TELEMETRY EVALUATOR</span>
           <span>STAGE: SCORE REVEAL</span>
@@ -98,11 +92,10 @@ export function ResultReveal({ score, onFinishReveal }: ResultRevealProps) {
             <div className="py-4 space-y-4 animate-fade-in">
               <div className="flex justify-center">
                 <span className="patter-pill bg-[#0f0f11] text-white text-xs">
-                  CERTIFIED BENCHMARK SCORE
+                  COPYSCORE ASSESSMENT SCORE
                 </span>
               </div>
 
-              {/* Big Score Counter */}
               <div className="my-2">
                 <span className="font-mono font-extrabold text-6xl sm:text-7xl tracking-tighter text-[#0f0f11]">
                   {displayScore}
@@ -111,7 +104,7 @@ export function ResultReveal({ score, onFinishReveal }: ResultRevealProps) {
               </div>
 
               <div className="inline-block bg-[#fcf4ee] border-[1.5px] border-[#0f0f11] px-4 py-1.5 font-mono text-sm font-bold text-[#0f0f11]">
-                Top {100 - score.percentile}% of Commercial Writers ({score.percentile}th Percentile)
+                {score.rankTitle}
               </div>
 
               {step >= 4 && (
