@@ -15,11 +15,8 @@ import {
   RotateCcw,
   ShieldCheck,
   TrendingUp,
-  Download,
-  ExternalLink,
   ChevronRight,
   Sparkles,
-  UserCheck,
   ArrowRight,
 } from 'lucide-react';
 
@@ -35,13 +32,11 @@ export function ResultsDashboard({
   score,
   onRetake,
   onViewLeaderboard,
-  onOpenChallenge,
   onOpenPricing,
 }: ResultsDashboardProps) {
-  const { isAuthenticated, profile, claimPendingGuestScore } = useAuth();
+  const { isAuthenticated, profile } = useAuth();
   const [copiedLink, setCopiedLink] = useState(false);
-  const [copiedShareCard, setCopiedShareCard] = useState(false);
-  const [activeTab, setActiveTab] = useState<'breakdown' | 'benchmark' | 'share'>('breakdown');
+  const [activeTab, setActiveTab] = useState<'breakdown' | 'context' | 'share'>('breakdown');
 
   const challengeCode = profile?.handle || score.userHandle?.toLowerCase() || score.attemptId.substring(4, 10);
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/beat/${challengeCode}` : `https://copyscore.app/beat/${challengeCode}`;
@@ -53,7 +48,7 @@ export function ResultsDashboard({
   };
 
   const handleShareTwitter = () => {
-    const text = `I just scored ${score.overallScore}/100 (Top ${100 - score.percentile}%) on CopyScore as a ${score.archetype.name}.\n\nCan you beat my conversion copy score?`;
+    const text = `I just scored ${score.overallScore}/100 on CopyScore as a ${score.archetype.name} (${score.rankTitle}).\n\nCan you beat my conversion copy score?`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
   };
 
@@ -65,8 +60,8 @@ export function ResultsDashboard({
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `CopyScore Benchmark: ${score.overallScore}/100`,
-          text: `I scored ${score.overallScore}/100 (Top ${100 - score.percentile}%) as a ${score.archetype.name}. Can you beat me?`,
+          title: `CopyScore Assessment: ${score.overallScore}/100`,
+          text: `I scored ${score.overallScore}/100 on CopyScore as a ${score.archetype.name} (${score.rankTitle}). Can you beat me?`,
           url: shareUrl,
         });
       } catch (err) {
@@ -79,7 +74,6 @@ export function ResultsDashboard({
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-6">
-      {/* Save Score / Claim Callout for Guests */}
       {!isAuthenticated && (
         <div className="patter-card bg-[#fcf4ee] p-4 sm:p-5 border-[1.5px] border-[#0f0f11] shadow-[4px_4px_0px_#0f0f11] flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="space-y-1 text-center sm:text-left">
@@ -106,7 +100,6 @@ export function ResultsDashboard({
         </div>
       )}
 
-      {/* Top Banner Verification */}
       <div className="patter-card bg-white p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 shadow-[3px_3px_0px_#0f0f11]">
         <div className="flex items-center gap-2 text-xs font-mono">
           <ShieldCheck className="w-4 h-4 text-[#15803d]" />
@@ -121,10 +114,8 @@ export function ResultsDashboard({
         </div>
       </div>
 
-      {/* Hero Result Card */}
       <div className="patter-card bg-white p-6 sm:p-8 shadow-[5px_5px_0px_#0f0f11] relative overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          {/* Left: Overall Score & Rank */}
           <div className="lg:col-span-5 text-center lg:text-left border-b lg:border-b-0 lg:border-r border-[#0f0f11] pb-6 lg:pb-0 lg:pr-6">
             <div className="inline-flex items-center gap-1.5 patter-pill bg-[#0f0f11] text-white text-[11px] mb-3">
               <Sparkles className="w-3 h-3 text-[#df9367]" />
@@ -139,15 +130,14 @@ export function ResultsDashboard({
             </div>
 
             <div className="mt-2 inline-block bg-[#fcf4ee] border-[1.5px] border-[#0f0f11] px-3 py-1 font-mono text-xs sm:text-sm font-bold text-[#0f0f11]">
-              TOP {100 - score.percentile}% (Ranked {score.percentile}th Percentile)
+              {score.rankTitle}
             </div>
 
             <p className="font-mono text-xs text-[#52525b] mt-3">
-              Rank: <strong className="text-[#0f0f11]">{score.rankTitle}</strong>
+              CopyScore rubric tier for assessment version {score.assessmentVersion}
             </p>
           </div>
 
-          {/* Right: Archetype Profile */}
           <div className="lg:col-span-7 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono text-[#52525b] uppercase tracking-wider">
@@ -180,7 +170,6 @@ export function ResultsDashboard({
         </div>
       </div>
 
-      {/* Quick Action Navigation Buttons */}
       <div className="flex flex-wrap gap-2 sm:gap-3">
         <button
           onClick={() => setActiveTab('breakdown')}
@@ -194,14 +183,14 @@ export function ResultsDashboard({
         </button>
 
         <button
-          onClick={() => setActiveTab('benchmark')}
+          onClick={() => setActiveTab('context')}
           className={`patter-btn px-4 py-2 text-xs sm:text-sm font-mono font-bold ${
-            activeTab === 'benchmark'
+            activeTab === 'context'
               ? 'bg-[#0f0f11] text-white shadow-[1px_1px_0px_#0f0f11]'
               : 'bg-white text-[#0f0f11]'
           }`}
         >
-          Cohort Benchmarks
+          Score Context
         </button>
 
         <button
@@ -217,10 +206,8 @@ export function ResultsDashboard({
         </button>
       </div>
 
-      {/* TAB 1: BREAKDOWN & DIAGNOSTICS */}
       {activeTab === 'breakdown' && (
         <div className="space-y-6">
-          {/* 4-Domain Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {Object.entries(score.domainScores).map(([key, domainScore]) => {
               const meta = DOMAINS[key as keyof typeof DOMAINS] || DOMAINS.conversion_copywriting;
@@ -268,9 +255,7 @@ export function ResultsDashboard({
             })}
           </div>
 
-          {/* Diagnostic Breakdown: What you did well & What cost you points */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* What you did well */}
             <div className="patter-card bg-white p-5 shadow-[3px_3px_0px_#0f0f11] border-l-4 border-l-[#15803d]">
               <div className="flex items-center gap-2 mb-3">
                 <CheckCircle2 className="w-5 h-5 text-[#15803d]" />
@@ -288,7 +273,6 @@ export function ResultsDashboard({
               </ul>
             </div>
 
-            {/* What cost you points */}
             <div className="patter-card bg-white p-5 shadow-[3px_3px_0px_#0f0f11] border-l-4 border-l-[#b91c1c]">
               <div className="flex items-center gap-2 mb-3">
                 <AlertCircle className="w-5 h-5 text-[#b91c1c]" />
@@ -307,7 +291,6 @@ export function ResultsDashboard({
             </div>
           </div>
 
-          {/* 3 High-Impact Growth Actions */}
           <div className="patter-card bg-[#fcfbf8] p-5 sm:p-6 shadow-[3px_3px_0px_#0f0f11]">
             <div className="flex items-center gap-2 mb-4">
               <TrendingUp className="w-5 h-5 text-[#df9367]" />
@@ -329,7 +312,6 @@ export function ResultsDashboard({
             </div>
           </div>
 
-          {/* Pro Value Bridge: Deep Diagnostics & Specialized Tests */}
           <div className="patter-card bg-[#fcf4ee] p-5 sm:p-6 shadow-[3px_3px_0px_#0f0f11] border-[1.5px] border-[#0f0f11] space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#0f0f11] pb-3">
               <div className="space-y-1">
@@ -369,74 +351,47 @@ export function ResultsDashboard({
         </div>
       )}
 
-      {/* TAB 2: BENCHMARK COMPARISON */}
-      {activeTab === 'benchmark' && (
+      {activeTab === 'context' && (
         <div className="patter-card bg-white p-5 sm:p-6 shadow-[3px_3px_0px_#0f0f11] space-y-5">
           <div>
             <h3 className="font-mono font-bold text-base sm:text-lg text-[#0f0f11] uppercase">
-              Cohort Comparison Matrix
+              How to read this score
             </h3>
             <p className="text-xs sm:text-sm text-[#52525b]">
-              Your score vs. verified peer cohorts on the {score.assessmentVersion} standard.
+              CopyScore reports what this assessment measured without inventing a population benchmark.
             </p>
           </div>
 
-          <div className="space-y-4 font-mono text-xs sm:text-sm">
-            {/* You */}
-            <div className="p-3 bg-[#fcf4ee] border-[1.5px] border-[#0f0f11]">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="font-bold text-[#0f0f11]">YOU ({score.archetype.name})</span>
-                <span className="font-bold text-[#df9367] text-base">{score.overallScore} pts (Top {100 - score.percentile}%)</span>
-              </div>
-              <div className="w-full h-3 bg-white border border-[#0f0f11]">
-                <div className="h-full bg-[#df9367]" style={{ width: `${score.overallScore}%` }} />
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="p-4 bg-[#fcf4ee] border-[1.5px] border-[#0f0f11] space-y-1">
+              <span className="text-[10px] font-mono font-bold text-[#52525b] uppercase">Assessment score</span>
+              <strong className="font-mono text-2xl text-[#0f0f11]">{score.overallScore}/100</strong>
+              <p className="text-xs text-[#52525b]">Weighted result from your answers and the difficulty of scenarios attempted.</p>
             </div>
+            <div className="p-4 bg-[#f7f6f0] border-[1.5px] border-[#0f0f11] space-y-1">
+              <span className="text-[10px] font-mono font-bold text-[#52525b] uppercase">Rubric tier</span>
+              <strong className="font-mono text-base text-[#0f0f11]">{score.rankTitle}</strong>
+              <p className="text-xs text-[#52525b]">A CopyScore interpretation band, not a rank among all commercial writers.</p>
+            </div>
+            <div className="p-4 bg-white border-[1.5px] border-[#0f0f11] space-y-1">
+              <span className="text-[10px] font-mono font-bold text-[#52525b] uppercase">Assessment version</span>
+              <strong className="font-mono text-base text-[#0f0f11]">{score.assessmentVersion}</strong>
+              <p className="text-xs text-[#52525b]">Use the same version when comparing your own retakes over time.</p>
+            </div>
+          </div>
 
-            {/* Performance Marketers */}
-            <div className="p-3 bg-white border border-[#0f0f11]">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[#52525b]">Performance Marketers (Median)</span>
-                <span className="font-bold text-[#0f0f11]">74 pts</span>
-              </div>
-              <div className="w-full h-2.5 bg-[#eeece4] border border-[#0f0f11]">
-                <div className="h-full bg-[#0f0f11]" style={{ width: `74%` }} />
-              </div>
-            </div>
-
-            {/* Conversion Copywriters */}
-            <div className="p-3 bg-white border border-[#0f0f11]">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[#52525b]">Conversion Copywriters (Median)</span>
-                <span className="font-bold text-[#0f0f11]">78 pts</span>
-              </div>
-              <div className="w-full h-2.5 bg-[#eeece4] border border-[#0f0f11]">
-                <div className="h-full bg-[#0f0f11]" style={{ width: `78%` }} />
-              </div>
-            </div>
-
-            {/* CRO Specialists */}
-            <div className="p-3 bg-white border border-[#0f0f11]">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[#52525b]">CRO Specialists (Median)</span>
-                <span className="font-bold text-[#0f0f11]">81 pts</span>
-              </div>
-              <div className="w-full h-2.5 bg-[#eeece4] border border-[#0f0f11]">
-                <div className="h-full bg-[#0f0f11]" style={{ width: `81%` }} />
-              </div>
-            </div>
+          <div className="p-4 bg-[#fcfbf8] border border-[#0f0f11] text-xs sm:text-sm text-[#52525b] leading-relaxed">
+            Population percentiles and profession-specific medians are intentionally not shown without a representative, verified cohort and disclosed methodology. For real competition data, use the verified leaderboard and head-to-head challenge flows.
           </div>
         </div>
       )}
 
-      {/* TAB 3: SHARE & CHALLENGE LINK */}
       {activeTab === 'share' && (
         <div className="space-y-6">
-          {/* Social Share Card Preview */}
           <div className="patter-card bg-white p-6 sm:p-8 shadow-[4px_4px_0px_#0f0f11] text-center max-w-xl mx-auto border-[2px]">
             <div className="patter-dot-grid p-6 border-[1.5px] border-[#0f0f11] bg-[#fdfcf7] space-y-4">
               <div className="inline-block patter-pill bg-[#0f0f11] text-white text-xs">
-                OFFICIAL BENCHMARK
+                VERIFIED ASSESSMENT
               </div>
 
               <div className="font-mono text-sm tracking-widest text-[#52525b] uppercase">
@@ -451,7 +406,7 @@ export function ResultsDashboard({
               </div>
 
               <div className="patter-pill bg-[#df9367] text-[#0f0f11] text-xs font-bold">
-                TOP {100 - score.percentile}% • {score.archetype.name.toUpperCase()}
+                {score.rankTitle.toUpperCase()} • {score.archetype.name.toUpperCase()}
               </div>
 
               <p className="font-mono text-xs text-[#0f0f11] font-bold">
@@ -459,7 +414,6 @@ export function ResultsDashboard({
               </p>
             </div>
 
-            {/* Share action buttons */}
             <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-2">
               <button
                 onClick={handleShareTwitter}
@@ -485,7 +439,6 @@ export function ResultsDashboard({
             </div>
           </div>
 
-          {/* Head-to-Head Challenge Box */}
           <div className="patter-card bg-[#fcf4ee] p-5 sm:p-6 shadow-[3px_3px_0px_#0f0f11] border-[1.5px] flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="space-y-1 text-center sm:text-left">
               <div className="flex items-center justify-center sm:justify-start gap-2">
@@ -521,7 +474,6 @@ export function ResultsDashboard({
         </div>
       )}
 
-      {/* Bottom Actions: Leaderboard, Pricing & Retake */}
       <div className="pt-4 flex flex-wrap items-center justify-between gap-3 border-t-[1.5px] border-[#0f0f11]">
         <div className="flex items-center gap-2">
           <button
