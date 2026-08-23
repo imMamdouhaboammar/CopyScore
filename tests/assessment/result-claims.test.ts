@@ -20,4 +20,16 @@ describe('assessment score reveal claims', () => {
     expect(methodology).not.toContain('Normative Percentile Distribution');
     expect(methodology).toContain('They are not claims about your percentile among all commercial writers');
   });
+
+  it('does not present modeled percentiles or invented cohort medians in the results dashboard', () => {
+    const dashboard = read('components/assessment/ResultsDashboard.tsx');
+
+    expect(dashboard).not.toMatch(/Top\s+\$?\{?100\s*-\s*score\.percentile/i);
+    expect(dashboard).not.toMatch(/score\.percentile\}?(?:th)?\s+Percentile/i);
+    expect(dashboard).not.toContain('verified peer cohorts');
+    expect(dashboard).not.toContain('Performance Marketers (Median)');
+    expect(dashboard).not.toContain('Conversion Copywriters (Median)');
+    expect(dashboard).not.toContain('CRO Specialists (Median)');
+    expect(dashboard).not.toContain('OFFICIAL BENCHMARK');
+  });
 });
