@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 
-describe('assessment score reveal claims', () => {
+describe('assessment result claims', () => {
   it('does not present modeled percentiles as observed population rankings in the reveal', () => {
     const resultReveal = read('components/assessment/ResultReveal.tsx');
 
@@ -19,5 +19,19 @@ describe('assessment score reveal claims', () => {
     expect(methodology).not.toContain('representing real-world commercial performance data');
     expect(methodology).not.toContain('Normative Percentile Distribution');
     expect(methodology).toContain('They are not claims about your percentile among all commercial writers');
+  });
+
+  it('keeps dashboard score, share, and context claims evidence-aware', () => {
+    const dashboard = read('components/assessment/ResultsDashboard.tsx');
+
+    expect(dashboard).not.toMatch(/Top\s+\{?100\s*-\s*score\.percentile/i);
+    expect(dashboard).not.toMatch(/score\.percentile\}?(?:th)?\s+Percentile/i);
+    expect(dashboard).not.toContain('Performance Marketers (Median)');
+    expect(dashboard).not.toContain('Conversion Copywriters (Median)');
+    expect(dashboard).not.toContain('CRO Specialists (Median)');
+    expect(dashboard).not.toContain('verified peer cohorts');
+    expect(dashboard).not.toContain('OFFICIAL BENCHMARK');
+    expect(dashboard).toContain('not a rank among all commercial writers');
+    expect(dashboard).toContain('representative, verified cohort and disclosed methodology');
   });
 });
