@@ -10,14 +10,33 @@ describe('assessment score reveal claims', () => {
 
     expect(resultReveal).not.toMatch(/Top\s+\{?100\s*-\s*score\.percentile/i);
     expect(resultReveal).not.toMatch(/score\.percentile\}?(?:th)?\s+Percentile/i);
-    expect(resultReveal).not.toContain('CERTIFIED BENCHMARK SCORE');
+    expect(resultReveal).not.toMatch(/certified benchmark score/i);
   });
 
   it('does not describe the assumed score distribution as real-world calibration evidence', () => {
     const methodology = read('components/assessment/MethodologyModal.tsx');
 
-    expect(methodology).not.toContain('representing real-world commercial performance data');
-    expect(methodology).not.toContain('Normative Percentile Distribution');
+    expect(methodology).not.toMatch(/representing real-world commercial performance data/i);
+    expect(methodology).not.toMatch(/normative percentile distribution/i);
     expect(methodology).toContain('They are not claims about your percentile among all commercial writers');
+  });
+
+  it('does not present modeled percentiles or invented cohort medians in the results dashboard', () => {
+    const dashboard = read('components/assessment/ResultsDashboard.tsx');
+
+    expect(dashboard).not.toMatch(/Top\s+\$?\{?100\s*-\s*score\.percentile/i);
+    expect(dashboard).not.toMatch(/score\.percentile\}?(?:th)?\s+Percentile/i);
+    expect(dashboard).not.toMatch(/verified peer cohorts/i);
+    expect(dashboard).not.toMatch(/performance marketers \(median\)/i);
+    expect(dashboard).not.toMatch(/conversion copywriters \(median\)/i);
+    expect(dashboard).not.toMatch(/cro specialists \(median\)/i);
+    expect(dashboard).not.toMatch(/official benchmark/i);
+  });
+
+  it('preserves the pro guidance block outside the unsupported benchmark scope', () => {
+    const dashboard = read('components/assessment/ResultsDashboard.tsx');
+
+    expect(dashboard).toContain('FOR SERIOUS PRACTITIONERS');
+    expect(dashboard).toContain('Explore Pro & Specialized Tests');
   });
 });
