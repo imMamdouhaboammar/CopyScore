@@ -209,6 +209,43 @@ export function ResultsDashboard({
               ))}
             </div>
           </div>
+
+          <div className="patter-card bg-[#fcf4ee] p-5 sm:p-6 shadow-[3px_3px_0px_#0f0f11] border-[1.5px] border-[#0f0f11] space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#0f0f11] pb-3">
+              <div className="space-y-1">
+                <span className="patter-pill bg-[#df9367] text-[#0f0f11] text-[10px] font-bold">
+                  FOR SERIOUS PRACTITIONERS
+                </span>
+                <h4 className="font-mono font-bold text-base text-[#0f0f11] uppercase">
+                  Ready to drill down and improve your score?
+                </h4>
+              </div>
+              {onOpenPricing && (
+                <button
+                  type="button"
+                  onClick={onOpenPricing}
+                  className="patter-btn patter-btn-black px-4 py-2 text-xs font-mono font-bold shrink-0"
+                >
+                  Explore Pro & Specialized Tests
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
+              <div className="p-2.5 bg-white border border-[#0f0f11]">
+                <strong className="text-[#0f0f11] block mb-0.5">4 SPECIALIZED TESTS / MO</strong>
+                <span className="text-[#52525b] font-sans text-xs">Isolate Conversion Copy, Ad Angles, CRO, or Content.</span>
+              </div>
+              <div className="p-2.5 bg-white border border-[#0f0f11]">
+                <strong className="text-[#0f0f11] block mb-0.5">MISTAKE DEDUCTIONS</strong>
+                <span className="text-[#52525b] font-sans text-xs">Examine exact flawed options and cognitive blind spots.</span>
+              </div>
+              <div className="p-2.5 bg-white border border-[#0f0f11]">
+                <strong className="text-[#0f0f11] block mb-0.5">UNLIMITED RETAKES</strong>
+                <span className="text-[#52525b] font-sans text-xs">Track your score progress and delta over time.</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
