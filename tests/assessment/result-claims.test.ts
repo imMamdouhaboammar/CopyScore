@@ -32,4 +32,11 @@ describe('assessment score reveal claims', () => {
     expect(dashboard).not.toMatch(/cro specialists \(median\)/i);
     expect(dashboard).not.toMatch(/official benchmark/i);
   });
+
+  it('preserves the pro guidance block outside the unsupported benchmark scope', () => {
+    const dashboard = read('components/assessment/ResultsDashboard.tsx');
+
+    expect(dashboard).toContain('FOR SERIOUS PRACTITIONERS');
+    expect(dashboard).toContain('Explore Pro & Specialized Tests');
+  });
 });
