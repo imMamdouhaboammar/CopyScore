@@ -68,7 +68,7 @@ export function calculateFinalScore(
   const lowestDomain = Object.entries(domainScores).sort((a, b) => a[1].scaledScore - b[1].scaledScore)[0][0] as DomainId;
   const growthActions = getGrowthActions(lowestDomain, archetype.id);
   const totalTimeSeconds = Math.max(15, Math.round((completedAt - startTime) / 1000));
-  const confidenceLevel = calculateEvidenceConfidence(domainResponses);
+  const confidenceLevel = calculateEvidenceConfidence(responses);
 
   return {
     attemptId,
@@ -92,14 +92,20 @@ export function calculateFinalScore(
   };
 }
 
-function calculateEvidenceConfidence(domainResponses: Record<DomainId, EvaluatedResponse[]>): number {
+export function calculateEvidenceConfidence(responses: EvaluatedResponse[]): number {
   // This is an evidence-coverage indicator, not a statistical confidence interval.
   // Each measured domain contributes equally. Repeated questions in one domain cannot
   // compensate for a domain with no evidence, and per-domain credit saturates at 3 items.
-  const evidence = DOMAIN_IDS.reduce((sum, domain) => {
-    const count = domainResponses[domain].length;
-    return sum + Math.min(count / 3, 1);
-  }, 0);
+  const domainCounts: Record<DomainId, number> = {
+    conversion_copywriting: 0,
+    content_creation: 0,
+    performance_copy: 0,
+    cro: 0,
+  };
+  responses.forEach((response) => {
+    if (domainCounts[response.domain] !== undefined) domainCounts[response.domain]++;
+  });
+  const evidence = DOMAIN_IDS.reduce((sum, domain) => sum + Math.min(domainCounts[domain] / 3, 1), 0);
   return Math.round((evidence / DOMAIN_IDS.length) * 95);
 }
 
@@ -137,7 +143,7 @@ function calculatePercentile(score: number): number {
   const t = 1.0 / (1.0 + 0.2316419 * Math.abs(z));
   const d = 0.3989423 * Math.exp((-z * z) / 2);
   const prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-  return Math.max(1, Math.min(99, Math.round((z > 0 ? 1.0 - prob : prob) * 100)));
+  return Math.max(1, Math.min(99, Math.round((z > 0 ? 1.0 - prob : prob) * 100));
 }
 
 function getRankTitle(score: number): string {
