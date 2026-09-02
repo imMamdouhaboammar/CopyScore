@@ -1,5 +1,6 @@
 import { AssessmentStage, ClientQuestion, DomainId, EvaluatedResponse, QuestionItem } from '../types/assessment';
 import { getClientSafeQuestion, QUESTION_BANK } from '../data/question-bank';
+import { calculateEvidenceConfidence } from './scoring';
 
 export interface AdaptiveSelectionResult {
   nextQuestion: ClientQuestion | null;
@@ -34,6 +35,7 @@ export function selectNextAdaptiveQuestion(
 ): AdaptiveSelectionResult {
   const answeredCount = answeredQuestionIds.length;
   const stage = determineStage(answeredCount);
+  const estimatedConfidence = calculateEvidenceConfidence(responses);
 
   if (stage === 'COMPLETED' || answeredCount >= TOTAL_ASSESSMENT_QUESTIONS) {
     return {
@@ -42,7 +44,7 @@ export function selectNextAdaptiveQuestion(
       isCompleted: true,
       questionNumber: answeredCount,
       totalQuestions: TOTAL_ASSESSMENT_QUESTIONS,
-      estimatedConfidence: 94,
+      estimatedConfidence,
     };
   }
 
@@ -70,7 +72,7 @@ export function selectNextAdaptiveQuestion(
       isCompleted: true,
       questionNumber: answeredCount,
       totalQuestions: answeredCount,
-      estimatedConfidence: 90,
+      estimatedConfidence,
     };
   }
 
@@ -118,15 +120,13 @@ export function selectNextAdaptiveQuestion(
     candidate = availableQuestions[0];
   }
 
-  const confidence = Math.min(95, Math.round(40 + (answeredCount / TOTAL_ASSESSMENT_QUESTIONS) * 55));
-
   return {
     nextQuestion: getClientSafeQuestion(candidate),
     stage,
     isCompleted: false,
     questionNumber: answeredCount + 1,
     totalQuestions: TOTAL_ASSESSMENT_QUESTIONS,
-    estimatedConfidence: confidence,
+    estimatedConfidence,
   };
 }
 
