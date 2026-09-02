@@ -143,7 +143,7 @@ function calculatePercentile(score: number): number {
   const t = 1.0 / (1.0 + 0.2316419 * Math.abs(z));
   const d = 0.3989423 * Math.exp((-z * z) / 2);
   const prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-  return Math.max(1, Math.min(99, Math.round((z > 0 ? 1.0 - prob : prob) * 100));
+  return Math.max(1, Math.min(99, Math.round((z > 0 ? 1.0 - prob : prob) * 100)));
 }
 
 function getRankTitle(score: number): string {
