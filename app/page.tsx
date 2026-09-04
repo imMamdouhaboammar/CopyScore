@@ -41,7 +41,7 @@ export default function Home() {
   const [currentStage, setCurrentStage] = useState<AssessmentStage>('CALIBRATION');
   const [questionNumber, setQuestionNumber] = useState<number>(1);
   const [totalQuestions, setTotalQuestions] = useState<number>(10);
-  const [estimatedConfidence, setEstimatedConfidence] = useState<number>(45);
+  const [estimatedConfidence, setEstimatedConfidence] = useState<number>(0);
   const [challengeOrigin, setChallengeOrigin] = useState<{
     challengerHandle: string;
     challengerScore: number;
@@ -135,7 +135,7 @@ export default function Home() {
         setCurrentStage(data.stage);
         setQuestionNumber(data.questionNumber || 1);
         setTotalQuestions(data.totalEstimatedQuestions || 10);
-        setEstimatedConfidence(data.estimatedConfidence || 45);
+        setEstimatedConfidence(data.estimatedConfidence ?? 0);
         setChallengeOrigin(data.challengeOrigin);
         setCurrentView('assessment');
 
@@ -234,7 +234,7 @@ export default function Home() {
           setCurrentStage(data.stage);
           setQuestionNumber(data.questionNumber || 1);
           setTotalQuestions(data.totalEstimatedQuestions || 10);
-          setEstimatedConfidence(data.estimatedConfidence || 45);
+          setEstimatedConfidence(data.estimatedConfidence ?? 0);
           setChallengeOrigin(data.challengeOrigin);
 
           const searchParams = new URLSearchParams(window.location.search);
