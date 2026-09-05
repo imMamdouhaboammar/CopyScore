@@ -4,6 +4,7 @@ import { getServerSessionUser } from '@/lib/auth/session';
 import { getAssessmentGuestAccessHash } from '@/lib/auth/assessment-guest';
 import { validateAssessmentSessionAccess } from '@/lib/engine/assessment-session-policy';
 import { getAssessmentSession } from '@/lib/domains/assessments/session-repository';
+import { calculateEvidenceConfidence } from '@/lib/engine/scoring';
 
 const SessionQuerySchema = z.object({
   sessionId: z.string().min(1),
@@ -54,10 +55,7 @@ export async function GET(req: NextRequest) {
       session.stage === 'COMPLETED' && !session.currentQuestion;
     const answeredCount = session.answeredQuestionIds.length;
     const totalQuestions = session.totalEstimatedQuestions || 10;
-    const estimatedConfidence = Math.min(
-      95,
-      Math.round(40 + (answeredCount / Math.max(1, totalQuestions)) * 55)
-    );
+    const estimatedConfidence = calculateEvidenceConfidence(session.responses);
 
     return NextResponse.json({
       success: true,
